@@ -1342,7 +1342,7 @@ function importJobFromUrl() {
         title = slug.replace(/-/g, ' ').replace(/\w/g, c => c.toUpperCase());
       }
     }
-    status.innerHTML = '✅ LinkedIn URL detected! Title & company extracted from URL. <strong>Please paste the job description below</strong> (copy from the LinkedIn page while you're logged in).';
+    status.innerHTML = '✅ LinkedIn URL detected! Title & company extracted from URL. <strong>Please paste the job description below</strong> (copy from the LinkedIn page while you are logged in).';
     status.style.color = '#15803d';
   } else if (url.includes('indeed.com')) {
     platform = 'Indeed';
@@ -2228,10 +2228,10 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 
     // ── SINGLE: Indeed job page
     'if(url.includes("indeed.com")){' +
-      'var t=document.querySelector("h1[data-testid='jobsearch-JobInfoHeader-title']");' +
-      'var c=document.querySelector("[data-testid='inlineHeader-companyName']");' +
+      'var t=document.querySelector("#jobDescriptionTitle")||document.querySelector("h1");' +
+      'var c=document.querySelector(".jobsearch-InlineCompanyRating-companyHeader");' +
       'var d=document.querySelector("#jobDescriptionText");' +
-      'var l=document.querySelector("[data-testid='job-location']");' +
+      'var l=document.querySelector(".jobsearch-JobInfoHeader-subtitle");' +
       'if(t)title=t.innerText.replace("- job post","").trim();' +
       'if(c)company=c.innerText.trim();' +
       'if(d)jd=d.innerText.trim().substring(0,3000);' +
