@@ -938,24 +938,21 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
     <div style="background:linear-gradient(135deg,#667eea,#764ba2);border-radius:10px;padding:14px;margin-bottom:16px;color:white;">
       <div style="font-weight:600;margin-bottom:6px;">🔖 1-Click Bookmarklet — Import from LinkedIn</div>
       <div style="font-size:12px;opacity:0.9;margin-bottom:10px;">
-        ① On any <strong>LinkedIn job page</strong> → adds that job instantly<br>
+        ① On any <strong>LinkedIn job page</strong> → saves that job instantly<br>
         ② On <strong>linkedin.com/my-items/saved-jobs/</strong> → imports ALL saved jobs at once 🚀
       </div>
-      <div style="font-size:12px;font-weight:600;margin-bottom:4px;">One-time setup (30 seconds):</div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;">One-time setup:</div>
       <div style="font-size:12px;opacity:0.9;margin-bottom:10px;line-height:1.9;">
         1. Show bookmarks bar: <strong>Cmd+Shift+B</strong> (Mac) / <strong>Ctrl+Shift+B</strong> (Windows)<br>
-        2. Click <strong>Copy Code</strong> below<br>
-        3. Right-click bookmarks bar → <strong>Add page</strong> (Chrome) or <strong>New Bookmark</strong> (Safari/Firefox)<br>
-        4. Name: <strong>Send to Job Tracker</strong> · paste copied code as URL → Save<br><br>
-        <strong>How it works:</strong> Click it on any LinkedIn job → briefly shows a confirmation page → auto-returns to LinkedIn. Job appears in your tracker within 30 seconds!
+        2. <strong>Select all text</strong> in the box below and copy it (Cmd+A, Cmd+C)<br>
+        3. Right-click bookmarks bar → <strong>Add page</strong> (Chrome) / <strong>New Bookmark</strong> (Safari)<br>
+        4. Name: <strong>Send to Job Tracker</strong> · paste as the URL → Save
       </div>
-      <button onclick="copyBookmarklet()" id="copyBmBtn"
-        style="background:white;color:#764ba2;border:none;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;">
-        📋 Copy Bookmarklet Code
-      </button>
-      <div id="bmCopied" style="display:none;font-size:12px;text-align:center;opacity:0.95;">
-        ✅ Copied! Right-click bookmarks bar → Add page → paste as URL → Save
-      </div>
+      <textarea id="bookmarkletBox" readonly
+        style="width:100%;height:60px;font-size:10px;font-family:monospace;border-radius:6px;padding:8px;box-sizing:border-box;background:#1e1b4b;color:#a5b4fc;border:none;resize:none;cursor:text;"
+        onclick="this.select();"
+        placeholder="Loading...">Loading bookmarklet code...</textarea>
+      <div style="font-size:11px;opacity:0.8;margin-top:6px;text-align:center;">👆 Click the box to select all, then Cmd+C / Ctrl+C to copy</div>
     </div>
 
     <div style="margin-bottom:16px;">
@@ -2203,8 +2200,6 @@ function copyBookmarklet() {
 
   var code = 'javascript:void(function(){'
     + 'var u=location.href;'
-
-    // ── BULK MODE: linkedin.com/my-items/saved-jobs/ ──────────────
     + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
       + 'var out=[];'
       + 'var cards=document.querySelectorAll(".job-card-container,.job-card-list,.scaffold-layout__list-item,li");'
@@ -2218,88 +2213,35 @@ function copyBookmarklet() {
         + 'if(t.length>2&&c.length>2)out.push({role:t,company:c,location:"Singapore",url:a?a.href.split("?")[0]:"",jd:"",status:"wishlist"});'
       + '});'
       + 'var seen={};out=out.filter(function(j){var k=j.role+"|"+j.company;if(seen[k])return false;seen[k]=true;return true;});'
-      + 'if(!out.length){alert("No jobs found.\nScroll down to load all saved jobs first, then try again.");return;}'
-      + 'if(!confirm("Found "+out.length+" saved jobs!\nSend all to your Job Tracker?"))return;'
+      + 'if(!out.length){alert("No jobs found. Scroll down to load all saved jobs first.");return;}'
+      + 'if(!confirm("Found "+out.length+" saved jobs! Send all to Job Tracker?"))return;'
       + 'var f=document.createElement("form");f.method="POST";f.action="' + appUrl + '/capture-bulk";'
       + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(out);'
       + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
       + 'return;'
     + '}'
-
-    // ── SINGLE MODE: individual job page ─────────────────────────
     + 'var t="",c="",l="Singapore";'
-
-    // Primary: parse page title — most reliable, works even before page fully loads
-    // LinkedIn title format: "Job Title at Company Name | LinkedIn"
-    // Also handles: "Job Title - Company | LinkedIn"
-    + 'var pt=document.title;'
-    + 'pt=pt.replace(/\s*[|–]\s*LinkedIn.*/i,"").replace(/\s*-\s*LinkedIn.*/i,"").trim();'
+    + 'var pt=document.title.replace(/\s*[|]\s*LinkedIn.*/i,"").replace(/\s*-\s*LinkedIn.*/i,"").trim();'
     + 'var ai=pt.lastIndexOf(" at ");'
     + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}'
-    + 'else{var di=pt.lastIndexOf(" - ");if(di>-1){t=pt.substring(0,di).trim();c=pt.substring(di+3).trim();}else{t=pt.trim();}}'
-
-    // Secondary: try DOM selectors to fill gaps or override with better data
+    + 'else{t=pt.trim();}'
     + 'if(u.indexOf("linkedin.com")>-1){'
-      + 'var ts=["h1.t-24","h1.t-bold",".job-details-jobs-unified-top-card__job-title h1",".top-card-layout__title","h1[class*=title]","h1"];'
+      + 'var ts=["h1.t-24","h1.t-bold",".job-details-jobs-unified-top-card__job-title h1",".top-card-layout__title","h1"];'
       + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
       + 'var cs=[".job-details-jobs-unified-top-card__company-name a",".topcard__org-name-link","[class*=company-name] a","[class*=company-name]"];'
       + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-      + 'var le=document.querySelector(".job-details-jobs-unified-top-card__bullet,[class*=workplace-type],[class*=location]");'
-      + 'if(le&&le.innerText.trim())l=le.innerText.trim();'
     + '}'
-
-    // Strip job ID from URL for cleaner storage
     + 'var cleanUrl=u.split("?")[0];'
-
-    + 'if(!t||t.length<2){alert("Could not detect job title.\nTry waiting for the page to fully load, then click again.");return;}'
+    + 'if(!t||t.length<2){alert("Could not detect job title. Wait for page to load fully.");return;}'
     + 'if(!confirm("Add to Job Tracker?\n\nRole: "+t+"\nCompany: "+(c||"Unknown")))return;'
     + 'location.href="' + appUrl + '/capture?title="+encodeURIComponent(t)+"&company="+encodeURIComponent(c||"Unknown")+"&location="+encodeURIComponent(l)+"&url="+encodeURIComponent(cleanUrl);'
   + '}())';
 
-  // Robust copy — works on all browsers including non-HTTPS
-  var copied = false;
-
-  // Method 1: modern clipboard API
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(code).then(function() {
-      showCopied();
-    }).catch(function() {
-      fallbackCopy(code);
-    });
-  } else {
-    fallbackCopy(code);
-  }
-
-  function fallbackCopy(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.top = '-9999px';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try {
-      document.execCommand('copy');
-      showCopied();
-    } catch(e) {
-      // Last resort: show in prompt
-      window.prompt('Copy this bookmarklet (Ctrl+A then Ctrl+C):', text);
-    }
-    document.body.removeChild(ta);
-  }
-
-  function showCopied() {
-    document.getElementById('bmCopied').style.display = 'block';
-    var btn = document.getElementById('copyBmBtn');
-    btn.textContent = '✅ Copied!';
-    btn.style.background = '#dcfce7';
-    btn.style.color = '#15803d';
-    setTimeout(function(){
-      btn.textContent = '📋 Copy Bookmarklet Code';
-      btn.style.background = 'white';
-      btn.style.color = '#764ba2';
-    }, 3000);
+  // Write into the textarea — no clipboard API needed
+  var box = document.getElementById('bookmarkletBox');
+  if (box) {
+    box.value = code;
+    box.select();
   }
 }
 // ─── POLL FOR BOOKMARKLET JOBS ──────────────────────────────
@@ -2335,6 +2277,7 @@ setInterval(pollBookmarkletJobs, 30000);
 pollBookmarkletJobs();
 
 console.log("🚀 Amretha's Job Hunt Command Centre loaded!");
+copyBookmarklet();
 </script>
 </body>
 </html>
