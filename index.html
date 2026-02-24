@@ -2201,25 +2201,59 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 function copyBookmarklet() {
   var appUrl = window.location.origin;
 
-  // Short redirect-style bookmarklet — no fetch, no CORS, works in all browsers
   var code = 'javascript:void(function(){'
-    + 'var u=location.href,t="",c="",l="Singapore";'
+    + 'var u=location.href;'
+
+    // ── BULK MODE: linkedin.com/my-items/saved-jobs/ ──────────────
+    + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
+      + 'var out=[];'
+      + 'var cards=document.querySelectorAll(".job-card-container,.job-card-list,.scaffold-layout__list-item,li");'
+      + 'cards.forEach(function(card){'
+        + 'var t="",c="";'
+        + 'var ts=["h3","h3.base-search-card__title",".job-card-list__title","[class*=job-card-list__title]","strong"];'
+        + 'var cs=["h4","h4.base-search-card__subtitle",".job-card-container__company-name","[class*=company-name]","[class*=subtitle]"];'
+        + 'for(var i=0;i<ts.length;i++){var el=card.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
+        + 'for(var i=0;i<cs.length;i++){var el=card.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
+        + 'var a=card.querySelector("a[href*='/jobs/view/']");'
+        + 'if(t.length>2&&c.length>2)out.push({role:t,company:c,location:"Singapore",url:a?a.href.split("?")[0]:"",jd:"",status:"wishlist"});'
+      + '});'
+      + 'var seen={};out=out.filter(function(j){var k=j.role+"|"+j.company;if(seen[k])return false;seen[k]=true;return true;});'
+      + 'if(!out.length){alert("No jobs found.\nScroll down to load all saved jobs first, then try again.");return;}'
+      + 'if(!confirm("Found "+out.length+" saved jobs!\nSend all to your Job Tracker?"))return;'
+      + 'var f=document.createElement("form");f.method="POST";f.action="' + appUrl + '/capture-bulk";'
+      + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(out);'
+      + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
+      + 'return;'
+    + '}'
+
+    // ── SINGLE MODE: individual job page ─────────────────────────
+    + 'var t="",c="",l="Singapore";'
+
+    // Primary: parse page title — most reliable, works even before page fully loads
+    // LinkedIn title format: "Job Title at Company Name | LinkedIn"
+    // Also handles: "Job Title - Company | LinkedIn"
+    + 'var pt=document.title;'
+    + 'pt=pt.replace(/\s*[|–]\s*LinkedIn.*/i,"").replace(/\s*-\s*LinkedIn.*/i,"").trim();'
+    + 'var ai=pt.lastIndexOf(" at ");'
+    + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}'
+    + 'else{var di=pt.lastIndexOf(" - ");if(di>-1){t=pt.substring(0,di).trim();c=pt.substring(di+3).trim();}else{t=pt.trim();}}'
+
+    // Secondary: try DOM selectors to fill gaps or override with better data
     + 'if(u.indexOf("linkedin.com")>-1){'
-      + 'var te=document.querySelector("h1");'
-      + 'var ce=document.querySelector(".job-details-jobs-unified-top-card__company-name a,.topcard__org-name-link");'
-      + 'var le=document.querySelector(".job-details-jobs-unified-top-card__bullet");'
-      + 'if(te)t=te.innerText.trim();'
-      + 'if(ce)c=ce.innerText.trim();'
-      + 'if(le)l=le.innerText.trim();'
+      + 'var ts=["h1.t-24","h1.t-bold",".job-details-jobs-unified-top-card__job-title h1",".top-card-layout__title","h1[class*=title]","h1"];'
+      + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
+      + 'var cs=[".job-details-jobs-unified-top-card__company-name a",".topcard__org-name-link","[class*=company-name] a","[class*=company-name]"];'
+      + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
+      + 'var le=document.querySelector(".job-details-jobs-unified-top-card__bullet,[class*=workplace-type],[class*=location]");'
+      + 'if(le&&le.innerText.trim())l=le.innerText.trim();'
     + '}'
-    + 'if(u.indexOf("indeed.com")>-1){'
-      + 'var te=document.querySelector("h1");'
-      + 'var ce=document.querySelector(".jobsearch-InlineCompanyRating-companyHeader");'
-      + 'if(te)t=te.innerText.replace("- job post","").trim();'
-      + 'if(ce)c=ce.innerText.trim();'
-    + '}'
-    + 'if(!t&&!c){alert("No job found on this page.");return;}'
-    + 'location.href="' + appUrl + '/capture?title="+encodeURIComponent(t)+"&company="+encodeURIComponent(c)+"&location="+encodeURIComponent(l)+"&url="+encodeURIComponent(u);'
+
+    // Strip job ID from URL for cleaner storage
+    + 'var cleanUrl=u.split("?")[0];'
+
+    + 'if(!t||t.length<2){alert("Could not detect job title.\nTry waiting for the page to fully load, then click again.");return;}'
+    + 'if(!confirm("Add to Job Tracker?\n\nRole: "+t+"\nCompany: "+(c||"Unknown")))return;'
+    + 'location.href="' + appUrl + '/capture?title="+encodeURIComponent(t)+"&company="+encodeURIComponent(c||"Unknown")+"&location="+encodeURIComponent(l)+"&url="+encodeURIComponent(cleanUrl);'
   + '}())';
 
   navigator.clipboard.writeText(code).then(function() {

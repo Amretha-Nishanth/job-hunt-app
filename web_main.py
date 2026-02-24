@@ -694,12 +694,10 @@ def capture():
     location = request.args.get("location", "Singapore").strip()
     url = request.args.get("url", "").strip()
 
-    if not title or not company:
-        return """<html><body style="font-family:sans-serif;text-align:center;padding:60px;">
-            <h2>❌ Could not detect job details</h2>
-            <p>Make sure you are on a LinkedIn or Indeed job listing page.</p>
-            <button onclick="history.back()" style="padding:10px 24px;font-size:16px;cursor:pointer;">← Go Back</button>
-            </body></html>"""
+    if not title:
+        title = "Unknown Role"
+    if not company:
+        company = "Unknown Company"
 
     import json, os, time
     from datetime import date
@@ -766,6 +764,79 @@ def capture():
   // Auto-close and go back to LinkedIn after 3 seconds if opened in same tab
   setTimeout(function() {{ history.back(); }}, 3000);
 </script>
+</body></html>"""
+
+
+@app.route("/capture-bulk", methods=["POST"])
+def capture_bulk():
+    import json, os, time
+    from datetime import date
+
+    raw = request.form.get("jobs", "[]")
+    try:
+        incoming = json.loads(raw)
+    except:
+        return "Invalid data", 400
+
+    jobs_file = os.path.join(BASE_DIR, "bookmarked_jobs.json")
+    try:
+        existing = json.load(open(jobs_file)) if os.path.exists(jobs_file) else []
+    except:
+        existing = []
+
+    seen = set()
+    for j in existing:
+        key = j.get("url","").split("?")[0] or (j.get("role","") + "|" + j.get("company",""))
+        seen.add(key)
+
+    added = 0
+    for job in incoming:
+        key = job.get("url","").split("?")[0] or (job.get("role","") + "|" + job.get("company",""))
+        if key in seen:
+            continue
+        existing.append({
+            "id": int(time.time() * 1000) + added,
+            "role": job.get("role","").strip(),
+            "company": job.get("company","").strip(),
+            "location": job.get("location","Singapore"),
+            "url": job.get("url",""),
+            "jd": "",
+            "status": "wishlist",
+            "date": date.today().strftime("%d/%m/%Y"),
+            "notes": "", "salary": "", "isDemo": False, "fromBookmarklet": True
+        })
+        seen.add(key)
+        added += 1
+
+    with open(jobs_file, "w") as f:
+        json.dump(existing, f)
+
+    app_url = request.host_url.rstrip("/")
+    total = len(incoming)
+    skipped = total - added
+    return f"""<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Jobs Saved!</title>
+<style>
+  body{{font-family:-apple-system,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+  .card{{background:white;border-radius:16px;padding:40px;max-width:440px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,0.1);text-align:center;}}
+  h2{{color:#15803d;margin-bottom:8px;}}
+  p{{color:#64748b;margin-bottom:8px;font-size:15px;}}
+  .btn{{display:inline-block;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin:6px;}}
+  .btn-primary{{background:#6366f1;color:white;}}
+  .btn-ghost{{background:#f1f5f9;color:#475569;}}
+</style>
+</head><body>
+<div class="card">
+  <div style="font-size:48px;margin-bottom:16px;">🎯</div>
+  <h2>{'Jobs Saved!' if added > 0 else 'Already Up To Date'}</h2>
+  <p><strong>{added} new job{'s' if added != 1 else ''}</strong> added to your tracker.</p>
+  {'<p style="color:#94a3b8;font-size:13px;">'+str(skipped)+' already in tracker — skipped.</p>' if skipped > 0 else ''}
+  <a href="{app_url}" class="btn btn-primary">Open Job Tracker →</a>
+  <button onclick="history.back()" class="btn btn-ghost">← Back to LinkedIn</button>
+</div>
 </body></html>"""
 
 if __name__ == "__main__":
