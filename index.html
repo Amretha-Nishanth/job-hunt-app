@@ -2315,70 +2315,77 @@ function copyBookmarklet() {
   var code = 'javascript:void(async function(){'
     + 'var u=location.href;'
 
-    // ── BULK MODE — LinkedIn Saved Jobs (all pages) ───────────────
+    // ── BULK MODE — LinkedIn Saved Jobs ────────────────────────────
     + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
 
-      // Helper: scrape jobs from HTML string
-      + 'function scrape(html){'
-        + 'var jobs=[];var div=document.createElement("div");div.innerHTML=html;'
-        + 'var seenH={};'
-        + 'div.querySelectorAll("a[href*=\'/jobs/view/\']").forEach(function(a){'
-          + 'var href=a.href.split("?")[0];if(!href||seenH[href])return;seenH[href]=true;'
-          + 'var card=a.closest("li,article,[data-occludable-job-id]")||a.parentElement;'
+      // ── UI overlay ──
+      + 'var ov=document.createElement("div");'
+      + 'ov.id="jt-ov";'
+      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99998;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
+      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:32px 40px;max-width:380px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3);">'
+        + '<div style="font-size:36px;margin-bottom:12px;">🔍</div>'
+        + '<div style="font-size:18px;font-weight:700;color:#0a66c2;margin-bottom:8px;">Scanning Saved Jobs</div>'
+        + '<div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:16px;">Scrolling to load all jobs...</div>'
+        + '<div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;">'
+          + '<div id="jt-bar" style="background:#0a66c2;height:100%;width:0%;transition:width 0.3s;border-radius:8px;"></div>'
+        + '</div>'
+        + '<div id="jt-count" style="font-size:12px;color:#888;margin-top:8px;">0 jobs found so far</div>'
+      + '</div>\';'
+      + 'document.body.appendChild(ov);'
+      + 'var msg=document.getElementById("jt-msg");'
+      + 'var bar=document.getElementById("jt-bar");'
+      + 'var cnt=document.getElementById("jt-count");'
+
+      // ── Collect jobs from live DOM ──
+      + 'function collectJobs(seen){'
+        + 'var jobs=[];'
+        + 'document.querySelectorAll("a[href*=\'/jobs/view/\']").forEach(function(a){'
+          + 'var href=a.href.split("?")[0];if(!href||seen[href])return;seen[href]=true;'
+          + 'var card=a.closest("li,article,[data-occludable-job-id],[class*=job-card]")||a.parentElement;'
           + 'var t="",c="";'
-          + 'var lbl=(a.getAttribute("aria-label")||"").trim();if(lbl.length>2)t=lbl;'
-          + 'if(!t){["[class*=job-card-list__title]","[class*=job-card__title]","strong","h3","h2"].forEach(function(s){if(t)return;var el=card.querySelector(s);if(el&&el.innerText.trim().length>2)t=el.innerText.trim();});}'
-          + '["[class*=primary-description]","[class*=job-card__company]","[class*=company-name]","[class*=subtitle]","h4"].forEach(function(s){if(c)return;var el=card.querySelector(s);if(el&&el.innerText.trim().length>2)c=el.innerText.trim();});'
+          + 'var lbl=(a.getAttribute("aria-label")||"").trim();'
+          + 'if(lbl.length>2){t=lbl;}'
+          + 'if(!t){'
+            + 'var titleTry=["[class*=job-card-list__title]","[class*=job-card__title]","[class*=artdeco-entity-lockup__title]","strong","h3","h2"];'
+            + 'for(var i=0;i<titleTry.length;i++){var el=card.querySelector(titleTry[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
+          + '}'
+          + 'var coTry=["[class*=primary-description]","[class*=artdeco-entity-lockup__subtitle]","[class*=job-card__company]","[class*=company-name]","[class*=subtitle]","h4"];'
+          + 'for(var i=0;i<coTry.length;i++){var el=card.querySelector(coTry[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
           + 'if(t&&!c){var ai=t.lastIndexOf(" at ");if(ai>-1){c=t.substring(ai+4).trim();t=t.substring(0,ai).trim();}}'
           + 'if(t.length>2)jobs.push({role:t,company:c||"Unknown",location:"Singapore",url:href,jd:"",status:"wishlist"});'
         + '});'
         + 'return jobs;'
       + '}'
 
-      // Start collecting — first scrape current page DOM
-      + 'var allJobs=scrape(document.body.innerHTML);'
-      + 'var seenUrls={};allJobs.forEach(function(j){seenUrls[j.url]=true;});'
+      // ── Auto-scroll to trigger LinkedIn lazy loading ──
+      + 'var seen={};var allJobs=[];var lastCount=0;var noNewRounds=0;'
+      + 'var scrollEl=document.querySelector(".scaffold-layout__list,.jobs-search-results-list,[class*=scaffold-layout__list]")||document.documentElement;'
 
-      // Figure out pagination: get current start and fetch remaining pages
-      + 'var baseUrl=location.href.split("?")[0];'
-      + 'var curStart=parseInt((location.search.match(/start=(\d+)/)||[0,0])[1])||0;'
-      + 'var pageSize=20;'
+      + 'for(var round=0;round<60;round++){'
+        // Scroll down in chunks
+        + 'scrollEl.scrollTop+=600;window.scrollBy(0,600);'
+        + 'await new Promise(function(r){setTimeout(r,600);});'
 
-      // Fetch page 0 to detect total count from LinkedIn pagination
-      + 'var totalJobs=0;'
-      + 'try{'
-        + 'var r0=await fetch(baseUrl+"?start=0",{credentials:"include",headers:{"Accept":"text/html","X-Requested-With":"XMLHttpRequest"}});'
-        + 'var h0=await r0.text();'
-        + 'var m=h0.match(/Showing.*?of.*?(\d[\d,]+)/i)||h0.match(/"totalResultCount":(\d+)/)||h0.match(/(\d+) saved jobs/i);'
-        + 'if(m)totalJobs=parseInt(m[1].replace(",",""));'
-        + 'var pg0=scrape(h0);pg0.forEach(function(j){if(!seenUrls[j.url]){seenUrls[j.url]=true;allJobs.push(j);}});'
-      + '}catch(e){}'
+        // Collect newly visible jobs
+        + 'var fresh=collectJobs(seen);'
+        + 'allJobs=allJobs.concat(fresh);'
 
-      // If we found a total, fetch all pages; otherwise fetch up to start=200
-      + 'var maxStart=totalJobs>0?totalJobs:Math.max(curStart+pageSize,200);'
-      + 'var starts=[];'
-      + 'for(var s=pageSize;s<maxStart+pageSize;s+=pageSize){if(s!==curStart)starts.push(s);}'
+        // Update UI
+        + 'var pct=Math.min(95,Math.round((round/50)*100));'
+        + 'bar.style.width=pct+"%";'
+        + 'cnt.textContent=allJobs.length+" jobs found so far";'
+        + 'msg.textContent="Scrolling to load all jobs... (pass "+(round+1)+")";'
 
-      + 'if(starts.length>0){'
-        + 'var prog=document.createElement("div");'
-        + 'prog.style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0a66c2;color:white;padding:14px 24px;border-radius:10px;font-family:sans-serif;font-size:14px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.3)";'
-        + 'prog.id="jt-prog";document.body.appendChild(prog);'
-        + 'for(var i=0;i<starts.length;i++){'
-          + 'prog.textContent="🔍 Scanning page "+(i+2)+" of "+(starts.length+1)+"… ("+allJobs.length+" jobs found)";'
-          + 'try{'
-            + 'var res=await fetch(baseUrl+"?start="+starts[i],{credentials:"include",headers:{"Accept":"text/html"}});'
-            + 'var html=await res.text();'
-            + 'var pg=scrape(html);'
-            + 'pg.forEach(function(j){if(!seenUrls[j.url]){seenUrls[j.url]=true;allJobs.push(j);}});'
-            + 'if(pg.length===0)break;'  // no more jobs, stop early
-          + '}catch(e){break;}'
-          + 'await new Promise(function(r){setTimeout(r,300);});'  // polite delay
-        + '}'
-        + 'var p=document.getElementById("jt-prog");if(p)p.remove();'
+        // Stop if no new jobs found for 5 consecutive rounds
+        + 'if(allJobs.length===lastCount){noNewRounds++;}else{noNewRounds=0;lastCount=allJobs.length;}'
+        + 'if(noNewRounds>=5&&allJobs.length>0)break;'
       + '}'
 
-      + 'if(!allJobs.length){alert("No saved jobs found.\\n\\nMake sure you are on:\\nhttps://www.linkedin.com/my-items/saved-jobs/");return;}'
-      + 'if(!confirm("Found "+allJobs.length+" saved job(s) across all pages!\\nSend all to Job Tracker?"))return;'
+      + 'bar.style.width="100%";'
+      + 'ov.remove();'
+
+      + 'if(!allJobs.length){alert("No saved jobs found.\\n\\nTips:\\n• Make sure you are on: linkedin.com/my-items/saved-jobs/\\n• Wait for the page to fully load before clicking\\n• Try scrolling down manually first");return;}'
+      + 'if(!confirm("Found "+allJobs.length+" saved job(s)!\\nAdd all to Job Tracker?"))return;'
       + 'var f=document.createElement("form");f.method="POST";f.action="' + appUrl + '/capture-bulk";'
       + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(allJobs);'
       + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
