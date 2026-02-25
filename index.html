@@ -1844,6 +1844,7 @@ async function openApplyKitForJob(jobId) {
   const coverPromise = callClaude(`Write a 300-word cover letter for ${PROFILE.name} applying to ${j.role} at ${j.company}. Highlight: 5% KPMG profit increase, 30 man-days saved, SAFe 6.0 certified. Professional and specific to ${j.company}.`);
   
   try {
+    const [resume, cover] = await Promise.all([resumePromise, coverPromise]);
 
     document.getElementById("applyKitContent").innerHTML = `
       <div class="panel-box">

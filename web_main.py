@@ -667,7 +667,8 @@ def bookmarklet_bulk():
                 "fromBookmarklet": True
             }
             saved.append(new_job)
-            existing_keys.add(key)
+            if u: seen_urls.add(u)
+            seen_tc.add(tc)
             added += 1
 
         with open(jobs_file, "w") as f:
@@ -813,7 +814,8 @@ def capture_bulk():
             "date": date.today().strftime("%d/%m/%Y"),
             "notes": "", "salary": "", "isDemo": False, "fromBookmarklet": True
         })
-        seen.add(key)
+        if u: seen_urls.add(u)
+        seen_tc.add(tc)
         added += 1
 
     with open(jobs_file, "w") as f:
