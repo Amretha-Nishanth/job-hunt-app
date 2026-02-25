@@ -1119,8 +1119,7 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
   </div>
 </div>
 
-<!-- Speed Kit Modal -->
-<div class="modal-overlay" id="speedKitModal" style="display:none;">
+
   <div class="modal modal-lg" style="max-width:700px;">
     <button class="modal-close" onclick="closeModal('speedKitModal')">✕</button>
     <div class="modal-title">🏃 Quick Apply Speed Kit</div>
@@ -2313,56 +2312,94 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 function copyBookmarklet() {
   var appUrl = window.location.origin;
 
-  var code = 'javascript:void(function(){'
+  var code = 'javascript:void(async function(){'
     + 'var u=location.href;'
 
-    // ── BULK MODE ──────────────────────────────────────────────────
+    // ── BULK MODE — LinkedIn Saved Jobs (all pages) ───────────────
     + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
-      + 'var out=[];'
-      + 'var cards=document.querySelectorAll(".job-card-container,.job-card-list,.scaffold-layout__list-item,li");'
-      + 'cards.forEach(function(card){'
-        + 'var t="",c="";'
-        + 'var ts=["h3","h3.base-search-card__title",".job-card-list__title","[class*=job-card-list__title]","strong"];'
-        + 'var cs=["h4","h4.base-search-card__subtitle",".job-card-container__company-name","[class*=company-name]","[class*=subtitle]"];'
-        + 'for(var i=0;i<ts.length;i++){var el=card.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
-        + 'for(var i=0;i<cs.length;i++){var el=card.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-        + 'var a=card.querySelector("a[href*=\\"/jobs/view/\\"]");'
-        + 'if(t.length>2&&c.length>2)out.push({role:t,company:c,location:"Singapore",url:a?a.href:"",jd:"",status:"wishlist"});'
-      + '});'
-      + 'var seen={};out=out.filter(function(j){var k=j.role+"|"+j.company;if(seen[k])return false;seen[k]=true;return true;});'
-      + 'if(!out.length){alert("No jobs found. Scroll down to load all saved jobs first.");return;}'
-      + 'if(!confirm("Found "+out.length+" saved jobs! Send all to Job Tracker?"))return;'
+
+      // Helper: scrape jobs from HTML string
+      + 'function scrape(html){'
+        + 'var jobs=[];var div=document.createElement("div");div.innerHTML=html;'
+        + 'var seenH={};'
+        + 'div.querySelectorAll("a[href*=\'/jobs/view/\']").forEach(function(a){'
+          + 'var href=a.href.split("?")[0];if(!href||seenH[href])return;seenH[href]=true;'
+          + 'var card=a.closest("li,article,[data-occludable-job-id]")||a.parentElement;'
+          + 'var t="",c="";'
+          + 'var lbl=(a.getAttribute("aria-label")||"").trim();if(lbl.length>2)t=lbl;'
+          + 'if(!t){["[class*=job-card-list__title]","[class*=job-card__title]","strong","h3","h2"].forEach(function(s){if(t)return;var el=card.querySelector(s);if(el&&el.innerText.trim().length>2)t=el.innerText.trim();});}'
+          + '["[class*=primary-description]","[class*=job-card__company]","[class*=company-name]","[class*=subtitle]","h4"].forEach(function(s){if(c)return;var el=card.querySelector(s);if(el&&el.innerText.trim().length>2)c=el.innerText.trim();});'
+          + 'if(t&&!c){var ai=t.lastIndexOf(" at ");if(ai>-1){c=t.substring(ai+4).trim();t=t.substring(0,ai).trim();}}'
+          + 'if(t.length>2)jobs.push({role:t,company:c||"Unknown",location:"Singapore",url:href,jd:"",status:"wishlist"});'
+        + '});'
+        + 'return jobs;'
+      + '}'
+
+      // Start collecting — first scrape current page DOM
+      + 'var allJobs=scrape(document.body.innerHTML);'
+      + 'var seenUrls={};allJobs.forEach(function(j){seenUrls[j.url]=true;});'
+
+      // Figure out pagination: get current start and fetch remaining pages
+      + 'var baseUrl=location.href.split("?")[0];'
+      + 'var curStart=parseInt((location.search.match(/start=(\d+)/)||[0,0])[1])||0;'
+      + 'var pageSize=20;'
+
+      // Fetch page 0 to detect total count from LinkedIn pagination
+      + 'var totalJobs=0;'
+      + 'try{'
+        + 'var r0=await fetch(baseUrl+"?start=0",{credentials:"include",headers:{"Accept":"text/html","X-Requested-With":"XMLHttpRequest"}});'
+        + 'var h0=await r0.text();'
+        + 'var m=h0.match(/Showing.*?of.*?(\d[\d,]+)/i)||h0.match(/"totalResultCount":(\d+)/)||h0.match(/(\d+) saved jobs/i);'
+        + 'if(m)totalJobs=parseInt(m[1].replace(",",""));'
+        + 'var pg0=scrape(h0);pg0.forEach(function(j){if(!seenUrls[j.url]){seenUrls[j.url]=true;allJobs.push(j);}});'
+      + '}catch(e){}'
+
+      // If we found a total, fetch all pages; otherwise fetch up to start=200
+      + 'var maxStart=totalJobs>0?totalJobs:Math.max(curStart+pageSize,200);'
+      + 'var starts=[];'
+      + 'for(var s=pageSize;s<maxStart+pageSize;s+=pageSize){if(s!==curStart)starts.push(s);}'
+
+      + 'if(starts.length>0){'
+        + 'var prog=document.createElement("div");'
+        + 'prog.style="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#0a66c2;color:white;padding:14px 24px;border-radius:10px;font-family:sans-serif;font-size:14px;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.3)";'
+        + 'prog.id="jt-prog";document.body.appendChild(prog);'
+        + 'for(var i=0;i<starts.length;i++){'
+          + 'prog.textContent="🔍 Scanning page "+(i+2)+" of "+(starts.length+1)+"… ("+allJobs.length+" jobs found)";'
+          + 'try{'
+            + 'var res=await fetch(baseUrl+"?start="+starts[i],{credentials:"include",headers:{"Accept":"text/html"}});'
+            + 'var html=await res.text();'
+            + 'var pg=scrape(html);'
+            + 'pg.forEach(function(j){if(!seenUrls[j.url]){seenUrls[j.url]=true;allJobs.push(j);}});'
+            + 'if(pg.length===0)break;'  // no more jobs, stop early
+          + '}catch(e){break;}'
+          + 'await new Promise(function(r){setTimeout(r,300);});'  // polite delay
+        + '}'
+        + 'var p=document.getElementById("jt-prog");if(p)p.remove();'
+      + '}'
+
+      + 'if(!allJobs.length){alert("No saved jobs found.\\n\\nMake sure you are on:\\nhttps://www.linkedin.com/my-items/saved-jobs/");return;}'
+      + 'if(!confirm("Found "+allJobs.length+" saved job(s) across all pages!\\nSend all to Job Tracker?"))return;'
       + 'var f=document.createElement("form");f.method="POST";f.action="' + appUrl + '/capture-bulk";'
-      + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(out);'
+      + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(allJobs);'
       + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
       + 'return;'
     + '}'
 
-    // ── SINGLE MODE ────────────────────────────────────────────────
+    // ── SINGLE MODE — individual job listing page ─────────────────
     + 'var t="",c="",l="Singapore",jd="";'
-
-    // Primary: page title — always reliable
-    + 'var pt=document.title.replace(/\s*[|]\s*LinkedIn.*/i,"").replace(/\s*-\s*LinkedIn.*/i,"").trim();'
+    + 'var pt=document.title.replace(/\\s*[|]\\s*LinkedIn.*/i,"").replace(/\\s*-\\s*LinkedIn.*/i,"").trim();'
     + 'var ai=pt.lastIndexOf(" at ");'
-    + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}'
-    + 'else{t=pt.trim();}'
-
-    // Secondary: DOM selectors override if better data found
-    + 'if(u.indexOf("linkedin.com")>-1){'
-      + 'var ts=["h1.t-24","h1.t-bold",".job-details-jobs-unified-top-card__job-title h1",".top-card-layout__title","h1"];'
-      + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
-      + 'var cs=[".job-details-jobs-unified-top-card__company-name a",".topcard__org-name-link","[class*=company-name] a","[class*=company-name]"];'
-      + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-      + 'var le=document.querySelector(".job-details-jobs-unified-top-card__bullet,[class*=workplace-type]");'
-      + 'if(le&&le.innerText.trim())l=le.innerText.trim();'
-      // Capture JD
-      + 'var de=document.querySelector(".jobs-description__content,.jobs-box__html-content,.job-description__content,[class*=description__content]");'
-      + 'if(de)jd=de.innerText.trim().substring(0,4000);'
-    + '}'
-
+    + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}else{t=pt.trim();}'
+    + 'var ts=["h1[class*=job-title]","h1[class*=title]","[class*=job-details-jobs-unified-top-card__job-title] h1",".top-card-layout__title","h1.t-24","h1.t-bold","h1"];'
+    + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
+    + 'var cs=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]",".topcard__org-name-link","[class*=company-name] a","[class*=company-name]","[class*=employer-name]"];'
+    + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
+    + 'var ls=["[class*=job-details-jobs-unified-top-card__bullet]","[class*=workplace-type]","[class*=job-insight]"];'
+    + 'for(var i=0;i<ls.length;i++){var el=document.querySelector(ls[i]);if(el&&el.innerText.trim().length>2){l=el.innerText.trim();break;}}'
+    + 'var ds=["[class*=jobs-description__content]","[class*=jobs-box__html-content]","[class*=description__content]","[class*=description]"];'
+    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
     + 'if(!t||t.length<2){alert("Could not detect job title. Wait for the page to fully load.");return;}'
-    // Keep FULL URL including tracking params so the Apply button works
-    + 'if(!confirm("Add to Job Tracker?\n\nRole: "+t+"\nCompany: "+(c||"Unknown")+"\n"+(jd?"\u2705 Job description captured":"\u26a0\ufe0f No JD found — AI ranking will be limited")))return;'
+    + 'if(!confirm("Add to Job Tracker?\\n\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"\\u2705 JD captured":"\\u26a0\\ufe0f No JD found")))return;'
     + 'location.href="' + appUrl + '/capture?title="+encodeURIComponent(t)+"&company="+encodeURIComponent(c||"Unknown")+"&location="+encodeURIComponent(l)+"&jd="+encodeURIComponent(jd)+"&url="+encodeURIComponent(u.split("?")[0]);'
   + '}())';
 
