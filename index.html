@@ -1697,6 +1697,12 @@ function renderKanban() {
 }
 
 function renderCard(j) {
+  // Normalise fields so card never crashes on missing data
+  j.priority  = j.priority  || 'Medium';
+  j.roleType  = j.roleType  || 'Business Analyst';
+  j.source    = j.source    || 'LinkedIn';
+  j.dateApplied = j.dateApplied || new Date().toISOString();
+  j.status    = (j.status === 'wishlist') ? 'saved' : (j.status || 'saved');
   const days = daysSince(j.dateApplied);
   const needsFollowup = j.status === "applied" && days >= 7;
   const demoBanner = j.isDemo ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;color:#c2410c;margin-bottom:6px;">⚠️ DEMO CARD — click ✕ to remove</div>` : "";
@@ -2346,7 +2352,7 @@ function copyBookmarklet() {
           + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&l.indexOf("Verified")===-1&&l.indexOf("Posted")===-1&&l.indexOf("applicant")===-1&&l.indexOf("ago")===-1;});'
           + 'var t=lines[0]||"";'
           + 'var c=lines[1]||"Unknown";'
-          + 'if(t.length>2)jobs.push({role:t,company:c,location:"Singapore",url:href,jd:"",status:"wishlist",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}});'
+          + 'if(t.length>2)jobs.push({role:t,company:c,location:"Singapore",url:href,jd:"",status:"saved",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}});'
         + '});'
         + 'return jobs;'
       + '}'
@@ -2408,7 +2414,7 @@ function copyBookmarklet() {
     + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
     + 'if(!t||t.length<2){alert("Could not detect job title. Wait for the page to fully load.");return;}'
     + 'if(!confirm("Add to Job Tracker?\\n\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"\\u2705 JD captured":"\\u26a0\\ufe0f No JD found")))return;'
-    + 'var encoded=encodeURIComponent(JSON.stringify([{role:t,company:c||"Unknown",location:l,url:u.split("?")[0],jd:jd,status:"wishlist",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}}]));'
+    + 'var encoded=encodeURIComponent(JSON.stringify([{role:t,company:c||"Unknown",location:l,url:u.split("?")[0],jd:jd,status:"saved",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}}]));'
     + 'window.open("' + appUrl + '/?import=1#jobs="+encoded,"_blank");'
   + '}())';
 
@@ -2448,7 +2454,7 @@ function mergeBookmarkletJobs(incoming) {
     j.id         = j.id || ('bm' + Date.now() + Math.random().toString(36).slice(2,6));
     j.roleType   = j.roleType   || 'Business Analyst';
     j.priority   = j.priority   || 'Medium';
-    j.status     = j.status     || 'wishlist';
+    j.status     = (j.status === 'wishlist' || !j.status) ? 'saved' : j.status;
     j.dateApplied= j.dateApplied|| new Date().toISOString();
     j.source     = j.source     || 'LinkedIn';
     j.notes      = j.notes      || '';
