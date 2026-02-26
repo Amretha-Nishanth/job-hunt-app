@@ -311,46 +311,56 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .tag-r { background: #ede9fe; color: #5b21b6; }
 .star-body { font-size: 12.5px; line-height: 1.6; color: var(--gray-700); }
 
-/* ============ TAB 3 — KANBAN ============ */
+/* ============ TAB 3 — JOB LIST VIEW ============ */
 .tracker-layout { display: grid; grid-template-columns: 1fr 220px; gap: 20px; }
-.kanban-board { overflow-x: auto; }
-.kanban-columns { display: flex; gap: 12px; min-width: max-content; }
-.kanban-col {
-  width: 220px;
-  flex-shrink: 0;
-  background: var(--gray-100);
-  border-radius: var(--radius);
-  padding: 12px;
-  min-height: 400px;
-}
-.kanban-col-header {
+
+/* Stage group header */
+.stage-group { margin-bottom: 20px; }
+.stage-group-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid var(--gray-200);
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  user-select: none;
 }
-.col-title { font-size: 12px; font-weight: 700; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.05em; }
-.col-count { background: var(--white); border-radius: 99px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--gray-600); }
-.col-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.stage-group-header:hover { filter: brightness(0.96); }
+.stage-group-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.stage-group-count {
+  background: rgba(0,0,0,0.12);
+  border-radius: 99px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+}
+.stage-group-toggle { margin-left: auto; font-size: 13px; transition: transform 0.2s; }
+.stage-group.collapsed .stage-group-toggle { transform: rotate(-90deg); }
+.stage-group.collapsed .stage-rows { display: none; }
 
-.job-card {
+/* List rows */
+.stage-rows { border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm); overflow: hidden; }
+.job-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 80px 80px 80px 110px auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
   background: var(--white);
-  border-radius: 10px;
-  padding: 12px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 8px rgba(13,27,62,0.08);
-  border: 1.5px solid var(--gray-100);
-  cursor: grab;
-  transition: all 0.2s;
-  position: relative;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background 0.15s;
+  font-size: 13px;
 }
-.job-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); border-color: var(--blue-mid); }
-.job-card.dragging { opacity: 0.5; }
-.job-card-company { font-weight: 700; font-size: 13px; color: var(--navy); }
-.job-card-role { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
-.job-card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.job-row:last-child { border-bottom: none; }
+.job-row:hover { background: var(--gray-50); }
+.job-row.demo-row { background: #fffbeb; }
+
+.job-row-company { font-weight: 700; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-row-role { color: var(--gray-500); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Keep badge styles */
 .meta-badge {
   padding: 2px 8px;
   border-radius: 99px;
@@ -363,11 +373,24 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .badge-salary { background: var(--blue-pale); color: var(--blue); }
 .badge-days { background: var(--gray-100); color: var(--gray-600); }
 .badge-followup { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
-.job-card-date { font-size: 10px; color: var(--gray-400); margin-top: 6px; }
-.job-card-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
-.job-card-notes { font-size: 11px; color: var(--gray-500); margin-top: 6px; border-top: 1px solid var(--gray-100); padding-top: 6px; font-style: italic; }
-.kanban-drop-zone { min-height: 40px; border: 2px dashed transparent; border-radius: 8px; transition: border-color 0.2s, background 0.2s; }
-.kanban-drop-zone.drag-over { border-color: var(--blue); background: var(--blue-pale); }
+.job-row-actions { display: flex; gap: 4px; align-items: center; }
+
+/* Table header row */
+.job-list-header {
+  display: grid;
+  grid-template-columns: 2fr 2fr 80px 80px 80px 110px auto;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--gray-50);
+  border: 1.5px solid var(--gray-200);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 /* FOLLOWUP SIDEBAR */
 .followup-sidebar .card { padding: 16px; }
@@ -669,22 +692,20 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
   </div>
 
   <div class="flex-between" style="margin-bottom:16px;">
-    <div class="card-title" style="margin-bottom:0;">📋 Application Kanban</div>
+    <div class="card-title" style="margin-bottom:0;">📋 Job Application Tracker</div>
     <div class="flex-row">
       <button class="btn btn-primary btn-sm" onclick="openAddJobModal()">+ Add New Job</button>
-      <button id="importPendingBtn" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;display:none;" onclick="importPendingJobs()">📥 Import Pending Jobs <span id="pendingCount" style="background:#92400e;color:white;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
-      <button class="btn btn-sm" style="background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0;" onclick="openImportModal()">🔗 Import from URL</button>
+      <button class="btn btn-sm" style="background:#0ea5e9;color:white;border:none;" onclick="openImportModal()">📥 Import from LinkedIn</button>
+      <button id="importPendingBtn" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;display:none;" onclick="importPendingJobs()">⏳ Load Pending <span id="pendingCount" style="background:#92400e;color:white;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
       <button class="btn btn-sm" style="background:#faf5ff;color:#7c3aed;border:1.5px solid #ddd6fe;" onclick="openRankModal()">🏆 AI Rank My Jobs</button>
       <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
-      <button class="btn btn-sm" style="background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;" onclick="clearDemoData()">🗑 Remove Demo Cards</button>
+      <button class="btn btn-sm" style="background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;" onclick="clearDemoData()">🗑 Remove Demo</button>
     </div>
   </div>
 
   <div class="tracker-layout">
     <div>
-      <div class="kanban-board">
-        <div class="kanban-columns" id="kanbanBoard"></div>
-      </div>
+      <div id="jobListView"></div>
 
       <!-- Analytics Section -->
       <div class="analytics-section">
@@ -940,14 +961,16 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
       <div style="font-weight:600;margin-bottom:6px;">🔖 1-Click Bookmarklet — Import from LinkedIn</div>
       <div style="font-size:12px;opacity:0.9;margin-bottom:10px;">
         ① On any <strong>LinkedIn job page</strong> → saves that job instantly<br>
-        ② On <strong>linkedin.com/my-items/saved-jobs/</strong> → imports ALL saved jobs at once 🚀
+        ② On <strong>linkedin.com/my-items/saved-jobs/</strong> → imports ALL saved jobs at once 🚀<br>
+        <span style="opacity:0.8;">✨ <strong>New:</strong> Jobs import directly — no server needed, works instantly!</span>
       </div>
       <div style="font-size:12px;font-weight:600;margin-bottom:6px;">One-time setup:</div>
       <div style="font-size:12px;opacity:0.9;margin-bottom:10px;line-height:1.9;">
         1. Show bookmarks bar: <strong>Cmd+Shift+B</strong> (Mac) / <strong>Ctrl+Shift+B</strong> (Windows)<br>
-        2. <strong>Select all text</strong> in the box below and copy it (Cmd+A, Cmd+C)<br>
+        2. <strong>Click the box below</strong> to select all, then <strong>Cmd+C / Ctrl+C</strong> to copy<br>
         3. Right-click bookmarks bar → <strong>Add page</strong> (Chrome) / <strong>New Bookmark</strong> (Safari)<br>
-        4. Name: <strong>Send to Job Tracker</strong> · paste as the URL → Save
+        4. Name: <strong>Send to Job Tracker</strong> · paste as the URL → Save<br>
+        5. ⚠️ <strong>Re-copy this bookmarklet</strong> if you ever redeploy the app (URL is baked in)
       </div>
       <textarea id="bookmarkletBox" readonly
         style="width:100%;height:60px;font-size:10px;font-family:monospace;border-radius:6px;padding:8px;box-sizing:border-box;background:#1e1b4b;color:#a5b4fc;border:none;resize:none;cursor:text;"
@@ -1657,80 +1680,117 @@ function clearDemoData() {
   toast("Demo cards removed — the board is yours!", "success");
 }
 
-// ========== KANBAN ==========
-let dragCard = null, dragJobId = null;
+// ========== LIST VIEW (replaces Kanban) ==========
+
+// Stage background colours (light tints)
+const COL_BG = {
+  saved: "#f8fafc", applied: "#eff6ff", screen: "#fffbeb",
+  interview: "#faf5ff", offer: "#f0fdf4", rejected: "#fff1f2"
+};
 
 function renderKanban() {
   const jobs = getJobs();
-  const board = document.getElementById("kanbanBoard");
-  board.innerHTML = "";
-  
+  const container = document.getElementById("jobListView");
+  if (!container) return;
+  container.innerHTML = "";
+
+  // Group by status
+  const grouped = {};
+  COLS.forEach(col => { grouped[col] = []; });
+  jobs.forEach(j => {
+    j.status = (j.status === 'wishlist') ? 'saved' : (j.status || 'saved');
+    (grouped[j.status] || (grouped['saved'] = grouped['saved'] || [])).push(j);
+  });
+
+  let anyJobs = false;
   COLS.forEach(col => {
-    const colJobs = jobs.filter(j => j.status === col);
-    const div = document.createElement("div");
-    div.className = "kanban-col";
-    div.innerHTML = `
-      <div class="kanban-col-header">
-        <div style="display:flex;align-items:center;">
-          <div class="col-dot" style="background:${COL_COLORS[col]};"></div>
-          <span class="col-title">${COL_LABELS[col].replace(/[^\w\s]/g,"").trim()}</span>
-        </div>
-        <span class="col-count">${colJobs.length}</span>
+    const colJobs = grouped[col] || [];
+    if (colJobs.length === 0) return;
+    anyJobs = true;
+
+    const group = document.createElement("div");
+    group.className = "stage-group";
+    group.id = "stage-" + col;
+
+    const headerBg = COL_BG[col];
+    const dotColor = COL_COLORS[col];
+
+    group.innerHTML = `
+      <div class="stage-group-header" style="background:${headerBg};border:1.5px solid ${dotColor}22;" onclick="toggleStage('${col}')">
+        <div style="width:10px;height:10px;border-radius:50%;background:${dotColor};flex-shrink:0;"></div>
+        <span class="stage-group-title" style="color:${dotColor};">${COL_LABELS[col]}</span>
+        <span class="stage-group-count" style="background:${dotColor};color:white;">${colJobs.length}</span>
+        <span class="stage-group-toggle" style="color:${dotColor};">▼</span>
       </div>
-      <div class="kanban-drop-zone" data-col="${col}" id="drop-${col}">
-        ${colJobs.map(j => renderCard(j)).join("")}
+      <div class="stage-rows" id="rows-${col}">
+        <div class="job-list-header">
+          <div>Company</div>
+          <div>Role</div>
+          <div>Priority</div>
+          <div>Days</div>
+          <div>Source</div>
+          <div>Salary</div>
+          <div>Actions</div>
+        </div>
+        ${colJobs.map(j => renderRow(j)).join("")}
       </div>`;
-    board.appendChild(div);
+    container.appendChild(group);
   });
-  
-  // Drag-drop
-  document.querySelectorAll(".job-card[data-id]").forEach(card => {
-    card.addEventListener("dragstart", e => { dragJobId = card.dataset.id; card.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
-    card.addEventListener("dragend", () => { card.classList.remove("dragging"); document.querySelectorAll(".kanban-drop-zone").forEach(z => z.classList.remove("drag-over")); });
-  });
-  document.querySelectorAll(".kanban-drop-zone").forEach(zone => {
-    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("drag-over"); });
-    zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
-    zone.addEventListener("drop", e => { e.preventDefault(); zone.classList.remove("drag-over"); if (dragJobId) { moveJob(dragJobId, zone.dataset.col); } });
-  });
-  
+
+  if (!anyJobs) {
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--gray-400);">
+      <div style="font-size:48px;margin-bottom:12px;">📋</div>
+      <div style="font-size:15px;font-weight:600;">No jobs tracked yet</div>
+      <div style="font-size:13px;margin-top:6px;">Click <strong>+ Add New Job</strong> or <strong>📥 Import from LinkedIn</strong> to get started</div>
+    </div>`;
+  }
+
   updateFollowups();
 }
 
-function renderCard(j) {
-  // Normalise fields so card never crashes on missing data
-  j.priority  = j.priority  || 'Medium';
-  j.roleType  = j.roleType  || 'Business Analyst';
-  j.source    = j.source    || 'LinkedIn';
+function toggleStage(col) {
+  const group = document.getElementById("stage-" + col);
+  if (group) group.classList.toggle("collapsed");
+}
+
+function renderRow(j) {
+  j.priority    = j.priority    || 'Medium';
+  j.roleType    = j.roleType    || '';
+  j.source      = j.source      || 'LinkedIn';
   j.dateApplied = j.dateApplied || new Date().toISOString();
-  j.status    = (j.status === 'wishlist') ? 'saved' : (j.status || 'saved');
   const days = daysSince(j.dateApplied);
   const needsFollowup = j.status === "applied" && days >= 7;
-  const demoBanner = j.isDemo ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;color:#c2410c;margin-bottom:6px;">⚠️ DEMO CARD — click ✕ to remove</div>` : "";
-  return `<div class="job-card" draggable="true" data-id="${j.id}">
-    ${demoBanner}
-    <div class="flex-between">
-      <div class="job-card-company">${j.company}</div>
-      <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();deleteJob('${j.id}')" style="padding:2px 6px;font-size:10px;color:var(--gray-400);">✕</button>
+  const rowClass = j.isDemo ? "job-row demo-row" : "job-row";
+
+  const moveButtons = `
+    <select class="form-control" style="padding:3px 6px;font-size:11px;height:26px;min-width:90px;display:inline-block;width:auto;" 
+      onchange="moveJob('${j.id}', this.value); this.value='${j.status}';">
+      ${COLS.map(c => `<option value="${c}" ${c === j.status ? 'selected' : ''}>${COL_LABELS[c].replace(/[^\w\s]/g,'').trim()}</option>`).join('')}
+    </select>`;
+
+  return `<div class="${rowClass}" data-id="${j.id}">
+    <div>
+      <div class="job-row-company">${j.isDemo ? '⚠️ ' : ''}${j.company}</div>
+      ${j.roleType ? `<div style="font-size:10px;color:var(--blue);font-weight:600;">${j.roleType}</div>` : ''}
     </div>
-    <div class="job-card-role">${j.role} · <span style="color:var(--blue);font-weight:600;">${j.roleType}</span></div>
-    <div class="job-card-meta">
-      <span class="meta-badge badge-${j.priority.toLowerCase()}">${j.priority}</span>
-      ${j.salary ? `<span class="meta-badge badge-salary">S$${j.salary}</span>` : ""}
+    <div>
+      <div class="job-row-role">${j.role}</div>
+      <div style="font-size:10px;color:var(--gray-400);margin-top:2px;">${sgDate(j.dateApplied)}</div>
+    </div>
+    <div><span class="meta-badge badge-${(j.priority||'medium').toLowerCase()}">${j.priority}</span></div>
+    <div>
       <span class="meta-badge badge-days">${days}d</span>
-      ${needsFollowup ? `<span class="meta-badge badge-followup">⏰ Follow up!</span>` : ""}
+      ${needsFollowup ? `<br><span class="meta-badge badge-followup" style="margin-top:3px;display:inline-block;">⏰ Follow up</span>` : ''}
     </div>
-    <div class="job-card-date">Applied: ${sgDate(j.dateApplied)} · ${j.source || "Unknown source"}</div>
-    ${j.notes ? `<div class="job-card-notes">${j.notes}</div>` : ""}
-    ${j.jd ? `<div style="font-size:10px;color:var(--gray-400);margin:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${j.jd.substring(0,200)}">📄 ${j.jd.substring(0,80)}...</div>` : ""}
-    <div class="job-card-actions">
-      ${j.url ? `<a href="${j.url}" target="_blank" class="btn btn-xs btn-primary" style="text-decoration:none;">🔗 Apply</a>` : '<span style="font-size:10px;color:var(--gray-400);">No link saved</span>'}
-      <button class="btn btn-xs btn-secondary" onclick="openJobDetail('${j.id}')">👁 View</button>
-      <button class="btn btn-xs btn-secondary" onclick="openApplyKitForJob('${j.id}')">⚡ Kit</button>
-      <button class="btn btn-xs btn-ghost" onclick="openChecklist('${j.id}')">☑ List</button>
-      <button class="btn btn-xs" style="background:#e0f2fe;color:#0369a1;border-radius:6px;border:none;cursor:pointer;padding:4px 8px;font-size:11px;font-weight:600;" onclick="quickMove('${j.id}','screen')">📞</button>
-      <button class="btn btn-xs" style="background:#ede9fe;color:#7c3aed;border-radius:6px;border:none;cursor:pointer;padding:4px 8px;font-size:11px;font-weight:600;" onclick="quickMove('${j.id}','interview')">🎙️</button>
-      <button class="btn btn-xs" style="background:#d1fae5;color:#065f46;border-radius:6px;border:none;cursor:pointer;padding:4px 8px;font-size:11px;font-weight:600;" onclick="quickMove('${j.id}','offer')">🏆</button>
+    <div style="font-size:12px;color:var(--gray-500);">${j.source}</div>
+    <div style="font-size:12px;color:var(--blue);">${j.salary ? 'S$'+j.salary : '<span style="color:var(--gray-300);">—</span>'}</div>
+    <div class="job-row-actions">
+      ${j.url ? `<a href="${j.url}" target="_blank" class="btn btn-xs btn-primary" style="text-decoration:none;">🔗</a>` : ''}
+      <button class="btn btn-xs btn-secondary" onclick="openJobDetail('${j.id}')" title="View details">👁</button>
+      <button class="btn btn-xs btn-secondary" onclick="openApplyKitForJob('${j.id}')" title="Generate kit">⚡</button>
+      <button class="btn btn-xs btn-ghost" onclick="openChecklist('${j.id}')" title="Checklist">☑</button>
+      ${moveButtons}
+      <button class="btn btn-xs btn-ghost" onclick="deleteJob('${j.id}')" title="Delete" style="color:var(--danger);">✕</button>
     </div>
   </div>`;
 }
@@ -1740,8 +1800,6 @@ function moveJob(id, newCol) {
   const j = jobs.find(j => j.id === id);
   if (j) { j.status = newCol; saveJobs(jobs); renderKanban(); updateStats(); toast(`Moved to ${COL_LABELS[newCol].replace(/[^\w\s]/g,"").trim()}`, "success"); }
 }
-
-function quickMove(id, col) { moveJob(id, col); }
 
 function deleteJob(id) {
   if (!confirm("Delete this job card?")) return;
@@ -2308,6 +2366,9 @@ renderTargetCompanies();
 renderSalaryBars();
 renderReferrals();
 
+// Check for bookmarklet data in URL hash (must run after renderKanban is ready)
+checkHashImport();
+
 // Set daily goal from storage
 const savedGoal = localStorage.getItem("dailyGoalTarget");
 if (savedGoal) document.getElementById("dailyGoalTarget").value = savedGoal;
@@ -2315,34 +2376,26 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 
 // API handled server-side — no client key needed
 
-// ─── BOOKMARKLET SETUP ──────────────────────────────────────
+// ─── BOOKMARKLET SETUP v2 — pure client-side, no server storage ─────────────
+// The bookmarklet encodes scraped jobs as base64 in the URL hash.
+// The tracker reads the hash on load and saves directly to localStorage.
+// This bypasses Render cold-start timeouts and ephemeral filesystem entirely.
+
 function copyBookmarklet() {
   var appUrl = window.location.origin;
 
   var code = 'javascript:void(async function(){'
     + 'var u=location.href;'
 
-    // ── BULK MODE — LinkedIn Saved Jobs ────────────────────────────
+    // ── BULK MODE — LinkedIn Saved Jobs page ──────────────────────
     + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
-
-      // Progress overlay
       + 'var ov=document.createElement("div");'
-      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
-      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:32px 40px;max-width:360px;width:90%;text-align:center;">'
-        + '<div style="font-size:36px;margin-bottom:12px;">🔍</div>'
-        + '<div style="font-size:17px;font-weight:700;color:#0a66c2;margin-bottom:8px;">Scanning Saved Jobs</div>'
-        + '<div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:16px;">Loading...</div>'
-        + '<div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;">'
-          + '<div id="jt-bar" style="background:#0a66c2;height:100%;width:5%;transition:width 0.4s;border-radius:8px;"></div>'
-        + '</div>'
-        + '<div id="jt-count" style="font-size:12px;color:#888;margin-top:10px;">0 jobs found</div>'
-      + '</div>\';'
+      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
+      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:32px 40px;max-width:360px;width:90%;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">🔍</div><div style="font-size:17px;font-weight:700;color:#0a66c2;margin-bottom:8px;">Scanning Saved Jobs</div><div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:16px;">Loading...</div><div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;"><div id="jt-bar" style="background:#0a66c2;height:100%;width:5%;transition:width 0.4s;border-radius:8px;"></div></div><div id="jt-count" style="font-size:12px;color:#888;margin-top:10px;">0 jobs found</div></div>\';'
       + 'document.body.appendChild(ov);'
       + 'var msg=document.getElementById("jt-msg");'
       + 'var bar=document.getElementById("jt-bar");'
       + 'var cnt=document.getElementById("jt-count");'
-
-      // Scrape cards from live DOM
       + 'function scrapeDOM(seen){'
         + 'var jobs=[];'
         + 'document.querySelectorAll("[data-chameleon-result-urn]").forEach(function(card){'
@@ -2351,194 +2404,123 @@ function copyBookmarklet() {
           + 'var href=a.href.split("?")[0];'
           + 'if(seen[href])return;seen[href]=true;'
           + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&l.indexOf("Verified")===-1&&l.indexOf("Posted")===-1&&l.indexOf("applicant")===-1&&l.indexOf("ago")===-1;});'
-          + 'var t=lines[0]||"";'
-          + 'var c=lines[1]||"Unknown";'
-          + 'if(t.length>2)jobs.push({role:t,company:c,location:"Singapore",url:href,jd:"",status:"saved",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}});'
+          + 'var t=lines[0]||"";var c=lines[1]||"Unknown";'
+          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,source:"LinkedIn",status:"saved",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString()});'
         + '});'
         + 'return jobs;'
       + '}'
-
-      // Find Next button
-      + 'function getNextBtn(){'
-        + 'var btns=document.querySelectorAll("button,a");'
-        + 'for(var i=0;i<btns.length;i++){'
-          + 'var b=btns[i];'
-          + 'var txt=(b.innerText||b.getAttribute("aria-label")||"").trim().toLowerCase();'
-          + 'if((txt==="next"||txt.indexOf("next page")>-1)&&!b.disabled)return b;'
-        + '}'
-        + 'return null;'
-      + '}'
-
-      // Scroll + paginate through all pages
+      + 'function getNextBtn(){var btns=document.querySelectorAll("button,a");for(var i=0;i<btns.length;i++){var b=btns[i];var txt=(b.innerText||b.getAttribute("aria-label")||"").trim().toLowerCase();if((txt==="next"||txt.indexOf("next page")>-1)&&!b.disabled)return b;}return null;}'
       + 'var allSeen={};var allJobs=[];var page=1;'
       + 'while(true){'
         + 'msg.textContent="Page "+page+": loading...";'
         + 'for(var s=0;s<8;s++){window.scrollBy(0,500);await new Promise(function(r){setTimeout(r,500);});}'
-        + 'var fresh=scrapeDOM(allSeen);'
-        + 'allJobs=allJobs.concat(fresh);'
-        + 'cnt.textContent=allJobs.length+" jobs found";'
-        + 'bar.style.width=Math.min(90,page*10)+"%";'
+        + 'var fresh=scrapeDOM(allSeen);allJobs=allJobs.concat(fresh);'
+        + 'cnt.textContent=allJobs.length+" jobs found";bar.style.width=Math.min(90,page*10)+"%";'
         + 'var nb=getNextBtn();'
         + 'if(!nb){msg.textContent="Done!";break;}'
-        + 'msg.textContent="Page "+page+" ("+allJobs.length+" total) — going to next...";'
-        + 'nb.click();'
-        + 'await new Promise(function(r){setTimeout(r,2500);});'
-        + 'window.scrollTo(0,0);'
-        + 'await new Promise(function(r){setTimeout(r,1000);});'
+        + 'msg.textContent="Page "+page+" ("+allJobs.length+" total) — going next...";nb.click();'
+        + 'await new Promise(function(r){setTimeout(r,2500);});window.scrollTo(0,0);await new Promise(function(r){setTimeout(r,1000);});'
         + 'page++;if(page>25)break;'
       + '}'
       + 'bar.style.width="100%";ov.remove();'
-
-      + 'if(!allJobs.length){alert("No jobs found. Make sure you are on:\\nhttps://www.linkedin.com/my-items/saved-jobs/");return;}'
-      + 'if(!confirm("Found "+allJobs.length+" job(s) across "+page+" page(s)!\\n\\nClick OK — your Job Tracker will open with them ready to import."))return;'
-
-      // ── Plain form POST to /capture-bulk — server saves jobs, redirects to tracker ──
-      // This is the ONLY method that works from LinkedIn (no CSP violation)
-      + 'var f=document.createElement("form");'
-      + 'f.method="POST";'
-      + 'f.action="' + appUrl + '/capture-bulk";'
-      + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(allJobs);'
-      + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
+      + 'if(!allJobs.length){alert("No jobs found.\\nGo to: https://www.linkedin.com/my-items/saved-jobs/");return;}'
+      + 'if(!confirm("Found "+allJobs.length+" job(s)!\\nClick OK to open your Job Tracker and import them."))return;'
+      // KEY FIX: encode as base64 in URL hash — no server round-trip needed
+      + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));'
+      + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
       + 'return;'
     + '}'
 
-    // ── SINGLE MODE — individual job listing ──────────────────────
-    + 'var t="",c="",l="Singapore",jd="";'
+    // ── SINGLE JOB MODE ───────────────────────────────────────────
+    + 'var t="",c="",jd="";'
     + 'var pt=document.title.replace(/\\s*[|]\\s*LinkedIn.*/i,"").replace(/\\s*-\\s*LinkedIn.*/i,"").trim();'
     + 'var ai=pt.lastIndexOf(" at ");'
     + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}else{t=pt.trim();}'
-    + 'var ts=["h1[class*=job-title]","h1[class*=title]","[class*=job-details-jobs-unified-top-card__job-title] h1",".top-card-layout__title","h1.t-24","h1.t-bold","h1"];'
+    + 'var ts=["h1[class*=job-title]","h1[class*=title]","[class*=job-details-jobs-unified-top-card__job-title] h1",".top-card-layout__title","h1"];'
     + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
-    + 'var cs=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]",".topcard__org-name-link","[class*=company-name] a","[class*=company-name]"];'
+    + 'var cs=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]",".topcard__org-name-link"];'
     + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-    + 'var ls=["[class*=job-details-jobs-unified-top-card__bullet]","[class*=workplace-type]"];'
-    + 'for(var i=0;i<ls.length;i++){var el=document.querySelector(ls[i]);if(el&&el.innerText.trim().length>2){l=el.innerText.trim();break;}}'
     + 'var ds=["[class*=jobs-description__content]","[class*=description__content]","[class*=description]"];'
-    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
-    + 'if(!t||t.length<2){alert("Could not detect job title. Wait for the page to fully load.");return;}'
-    + 'if(!confirm("Add to Job Tracker?\\n\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"\\u2705 JD captured":"\\u26a0\\ufe0f No JD found")))return;'
-    + 'var f=document.createElement("form");'
-    + 'f.method="POST";f.action="' + appUrl + '/capture-bulk";'
-    + 'var single=[{role:t,company:c||"Unknown",location:l,url:u.split("?")[0],jd:jd,status:"saved",source:"LinkedIn",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString(),notes:"",salary:"",checklist:{}}];'
-    + 'var inp=document.createElement("input");inp.type="hidden";inp.name="jobs";inp.value=JSON.stringify(single);'
-    + 'f.appendChild(inp);document.body.appendChild(f);f.submit();'
+    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,3000);break;}}'
+    + 'if(!t||t.length<2){alert("Could not detect job title. Make sure the page is fully loaded.");return;}'
+    + 'if(!confirm("Add to Job Tracker?\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"✅ JD captured":"⚠️ No JD")))return;'
+    + 'var single=[{role:t,company:c||"Unknown",url:u.split("?")[0],jd:jd,source:"LinkedIn",status:"saved",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
+    + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));'
+    + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
+
   + '}())';
 
   var box = document.getElementById('bookmarkletBox');
   if (box) { box.value = code; box.select(); }
 }
-// ─── POLL FOR BOOKMARKLET JOBS ──────────────────────────────
-async function checkBookmarkletJobs() {
-  try {
-    const data = await callBackend('/api/bookmarklet-jobs', {});
-    // callBackend uses POST - let's use fetch directly for this GET
-  } catch(e) {}
-}
 
-// Poll via GET every 30 seconds when tab3 is visible
-async function pollBookmarkletJobs() {
+// ─── READ BOOKMARKLET DATA FROM URL HASH ON PAGE LOAD ───────────────────────
+function checkHashImport() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#bm:')) return;
+
+  // Clear hash immediately so it doesn't stay in browser history
+  history.replaceState(null, '', '/');
+
   try {
-    const res = await fetch('/api/bookmarklet-jobs');
-    const data = await res.json();
-    if (data.jobs && data.jobs.length > 0) {
-      mergeBookmarkletJobs(data.jobs);
-    }
-  } catch(e) { console.error('pollBookmarkletJobs error:', e); }
+    const encoded = hash.slice(4);
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const incoming = JSON.parse(json);
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+
+    // Switch to Job Tracker tab first so user sees the result
+    const tab3btn = document.querySelector('.tab-btn:nth-child(3)');
+    if (tab3btn) switchTab('tab3', tab3btn);
+
+    mergeBookmarkletJobs(incoming);
+  } catch(e) {
+    console.error('Hash import error:', e);
+    toast('Import error — try again', 'error');
+  }
 }
 
 function mergeBookmarkletJobs(incoming) {
   const existing = getJobs();
-  // Build dedup sets from existing localStorage jobs
   const existingUrls = new Set(existing.map(j => (j.url||'').split('?')[0]).filter(Boolean));
   const existingTC  = new Set(existing.map(j => (j.role||'').trim().toLowerCase() + '|' + (j.company||'').trim().toLowerCase()));
   let added = 0;
+
   incoming.forEach(j => {
     const url = (j.url||'').split('?')[0];
     const tc  = (j.role||'').trim().toLowerCase() + '|' + (j.company||'').trim().toLowerCase();
-    if ((url && existingUrls.has(url)) || existingTC.has(tc)) return; // skip duplicate
-    // Fill required fields so card renders correctly in kanban
-    j.id         = j.id || ('bm' + Date.now() + Math.random().toString(36).slice(2,6));
-    j.roleType   = j.roleType   || 'Business Analyst';
-    j.priority   = j.priority   || 'Medium';
-    j.status     = (j.status === 'wishlist' || !j.status) ? 'saved' : j.status;
-    j.dateApplied= j.dateApplied|| new Date().toISOString();
-    j.source     = j.source     || 'LinkedIn';
-    j.notes      = j.notes      || '';
-    j.salary     = j.salary     || '';
-    j.checklist  = j.checklist  || {};
-    j.isDemo     = false;
+    if ((url && existingUrls.has(url)) || existingTC.has(tc)) return;
+
+    j.id          = 'bm' + Date.now() + Math.random().toString(36).slice(2,6);
+    j.roleType    = j.roleType    || 'Business Analyst';
+    j.priority    = j.priority    || 'Medium';
+    j.status      = (j.status === 'wishlist' || !j.status) ? 'saved' : j.status;
+    j.dateApplied = j.dateApplied || new Date().toISOString();
+    j.source      = j.source      || 'LinkedIn';
+    j.notes       = j.notes       || '';
+    j.salary      = j.salary      || '';
+    j.checklist   = j.checklist   || {};
+    j.isDemo      = false;
+
     existing.push(j);
     existingUrls.add(url);
     existingTC.add(tc);
     added++;
   });
+
   if (added > 0) {
     saveJobs(existing);
     renderKanban();
     updateStats();
     renderAnalytics();
-    toast(`🔖 ${added} new job(s) added to tracker!`, 'success');
+    toast(`🎉 ${added} job(s) imported from LinkedIn!`, 'success');
+  } else {
+    toast('All jobs are already in your tracker — nothing new added.', '');
   }
 }
 
-// ── CHECK PENDING COUNT — shows Import button if server has queued jobs ──
-async function checkPendingCount() {
-  try {
-    const res = await fetch('/api/pending-count');
-    const data = await res.json();
-    const btn = document.getElementById('importPendingBtn');
-    const badge = document.getElementById('pendingCount');
-    if (data.count > 0) {
-      badge.textContent = data.count;
-      btn.style.display = 'inline-flex';
-      btn.style.alignItems = 'center';
-    } else {
-      btn.style.display = 'none';
-    }
-  } catch(e) {}
-}
-
-// ── IMPORT PENDING JOBS — manually triggered by button click ──
-async function importPendingJobs() {
-  const btn = document.getElementById('importPendingBtn');
-  btn.textContent = '⏳ Importing...';
-  btn.disabled = true;
-  try {
-    const res = await fetch('/api/bookmarklet-jobs');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) {
-      toast('No pending jobs found', 'info');
-      btn.style.display = 'none';
-      return;
-    }
-    mergeBookmarkletJobs(data.jobs);
-    btn.style.display = 'none';
-  } catch(e) {
-    toast('Import failed: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// Check for pending jobs on load and every 15 seconds
-checkPendingCount();
-setInterval(checkPendingCount, 15000);
-
-// Also check if redirected from bookmarklet (imported=N in URL)
-if (window.location.search.includes('imported=')) {
-  // Show a banner to click the import button
-  setTimeout(() => {
-    const count = new URLSearchParams(window.location.search).get('imported');
-    if (parseInt(count) > 0) {
-      toast('🎯 ' + count + ' jobs saved! Click the yellow "Import Pending Jobs" button to load them.', 'success');
-      document.getElementById('importPendingBtn').style.display = 'inline-flex';
-      document.getElementById('importPendingBtn').style.alignItems = 'center';
-      document.getElementById('pendingCount').textContent = count;
-    }
-    // Clean URL
-    history.replaceState(null, '', '/');
-  }, 800);
-}
+// Stubs — old server-polling approach no longer needed
+function checkPendingCount() {}
+async function importPendingJobs() {}
 
 console.log("🚀 Amretha's Job Hunt Command Centre loaded!");
 </script>
