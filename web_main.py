@@ -14,7 +14,32 @@ app = Flask(__name__,
             static_folder=os.path.join(BASE_DIR, 'static'))
 CORS(app)
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+def call_claude(prompt):
+    if not GROQ_API_KEY:
+        return "Error: GROQ_API_KEY not set. Add it in Render → Environment Variables."
+    try:
+        res = http_requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "max_tokens": 2048,
+                "temperature": 0.7,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=60
+        )
+        data = res.json()
+        if "error" in data:
+            return f"Groq API error: {data['error']['message']}"
+        return data["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 PROFILE = {
     "name": "Amretha Karthikeyan",
@@ -120,22 +145,6 @@ def is_ai_role(jd, role_type):
     text = (jd + " " + role_type).lower()
     return any(t in text for t in ai_terms)
 
-def call_gemini(prompt):
-    if not GEMINI_API_KEY:
-        return "Error: GEMINI_API_KEY not set. Add it in Render → Environment Variables."
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-        body = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": 2048, "temperature": 0.7}
-        }
-        res = http_requests.post(url, json=body, timeout=30)
-        data = res.json()
-        if "error" in data:
-            return f"Gemini API error: {data['error']['message']}"
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        return f"Error: {str(e)}"
 
 # ─── ROUTES ───────────────────────────────────────────────
 
@@ -178,7 +187,7 @@ Write a complete ATS-optimised resume with:
 
 Do not fabricate experience. Use product language, not consulting language."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     return jsonify({"result": result, "isAiRole": ai_role})
 
 @app.route("/api/cover-letter", methods=["POST"])
@@ -212,7 +221,7 @@ Write a compelling cover letter that:
 
 Exactly 300-350 words. No consulting jargon. Sound like a product person."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     return jsonify({"result": result})
 
 @app.route("/api/interview-prep", methods=["POST"])
@@ -250,7 +259,7 @@ Product-minded questions that signal ownership thinking.
 ## Salary Negotiation Tip (Singapore Market)
 Specific tip for SAFe-certified PO/BA with 5+ years in Singapore fintech."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     return jsonify({"result": result})
 
 @app.route("/api/full-kit", methods=["POST"])
@@ -270,9 +279,9 @@ def full_kit():
 
     import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        r_future = executor.submit(call_gemini, resume_prompt)
-        c_future = executor.submit(call_gemini, cover_prompt)
-        p_future = executor.submit(call_gemini, prep_prompt)
+        r_future = executor.submit(call_claude, resume_prompt)
+        c_future = executor.submit(call_claude, cover_prompt)
+        p_future = executor.submit(call_claude, prep_prompt)
         resume = r_future.result()
         cover = c_future.result()
         prep = p_future.result()
@@ -290,7 +299,7 @@ def follow_up():
 Include: subject line, brief message referencing the role, continued interest, offer to provide more info.
 Under 80 words. Ready to copy-paste. Professional and confident."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     return jsonify({"result": result})
 
 @app.route("/api/speed-kit", methods=["POST"])
@@ -301,7 +310,7 @@ def speed_kit():
 
     prompt = f"""Write a genuine 3-sentence "Why do you want to work at {company}?" answer for Amretha Karthikeyan, a SAFe 6.0 PO/Lead BA transitioning from KPMG to an in-house {role} role. Be specific to {company}'s product/market. Sound like a product person who wants to build. No consulting language."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     return jsonify({"result": result})
 
 
@@ -311,7 +320,7 @@ def generic():
     prompt = data.get("prompt", "")
     system = data.get("systemPrompt", "")
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
-    result = call_gemini(full_prompt)
+    result = call_claude(full_prompt)
     return jsonify({"result": result})
 
 
@@ -518,7 +527,7 @@ If the job description contains any of these phrases: "no visa sponsorship", "no
 
 Return ONLY the JSON array, no other text."""
 
-    result = call_gemini(prompt)
+    result = call_claude(prompt)
     
     # Parse the JSON response
     import json, re
