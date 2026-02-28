@@ -2790,7 +2790,8 @@ function copyBookmarklet() {
           + 'var href=a.href.split("?")[0];if(seen[href])return;seen[href]=true;'
           + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&["Verified","Posted","applicant","ago"].every(function(x){return l.indexOf(x)===-1;});});'
           + 'var t=lines[0]||"",c=lines[1]||"Unknown";'
-          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString(),jd:""});'
+          + 'var liMatch=href.match(/\\/jobs\\/view\\/(\\d+)/);var liId=liMatch?"li_"+liMatch[1]:"";'\
+          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,linkedInId:liId,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString(),jd:""});'
         + '});return jobs;'
       + '}'
       + 'function getNextBtn(){var btns=document.querySelectorAll("button,a");for(var i=0;i<btns.length;i++){var b=btns[i];var txt=(b.innerText||b.getAttribute("aria-label")||"").trim().toLowerCase();if((txt==="next"||txt.indexOf("next page")>-1)&&!b.disabled)return b;}return null;}'
@@ -2829,7 +2830,8 @@ function copyBookmarklet() {
     + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
     + 'if(!t||t.length<2){alert("Could not detect job title. Make sure the page is fully loaded.");return;}'
     + 'if(!confirm("Add to Job Tracker?\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"✅ JD captured ("+jd.length+" chars)":"⚠️ No JD found — open the job first")))return;'
-    + 'var single=[{role:t,company:c||"Unknown",url:u.split("?")[0],jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
+    + 'var cleanU=u.split("?")[0];var liM=cleanU.match(/\\/jobs\\/view\\/(\\d+)/);var liId=liM?"li_"+liM[1]:"";'\
+    + 'var single=[{role:t,company:c||"Unknown",url:cleanU,linkedInId:liId,jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
     + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));'
     + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
 
@@ -2839,11 +2841,18 @@ function copyBookmarklet() {
   if (box) { box.value = code; box.select(); }
 }
 
+function extractLinkedInJobId(url) {
+  // LinkedIn job URLs look like: https://www.linkedin.com/jobs/view/4085372910/
+  // Extract the numeric job ID as the canonical unique identifier
+  if (!url) return null;
+  const m = url.match(/\/jobs\/view\/(\d+)/);
+  return m ? 'li_' + m[1] : null;
+}
+
 function checkHashImport() {
   const hash = window.location.hash;
   if (!hash.startsWith('#bm:')) return;
 
-  // Clear hash immediately so it doesn't stay in browser history
   history.replaceState(null, '', '/');
 
   try {
@@ -2852,7 +2861,6 @@ function checkHashImport() {
     const incoming = JSON.parse(json);
     if (!Array.isArray(incoming) || incoming.length === 0) return;
 
-    // Switch to Job Tracker tab first so user sees the result
     const tab3btn = document.querySelector('.tab-btn:nth-child(3)');
     if (tab3btn) switchTab('tab3', tab3btn);
 
@@ -2863,48 +2871,89 @@ function checkHashImport() {
   }
 }
 
-function mergeBookmarkletJobs(incoming) {
+async function mergeBookmarkletJobs(incoming) {
   const existing = getJobs();
-  const existingUrls = new Set(existing.map(j => (j.url||'').split('?')[0]).filter(Boolean));
-  const existingTC  = new Set(existing.map(j => (j.role||'').trim().toLowerCase() + '|' + (j.company||'').trim().toLowerCase()));
+
+  // Build dedup sets using LinkedIn job ID as primary key, URL as fallback
+  const existingLiIds = new Set();
+  const existingUrls  = new Set();
+
+  existing.forEach(j => {
+    const liId = extractLinkedInJobId(j.url) || j.linkedInId;
+    if (liId) existingLiIds.add(liId);
+    const cleanUrl = (j.url || '').split('?')[0].replace(/\/$/, '');
+    if (cleanUrl) existingUrls.add(cleanUrl);
+  });
+
   let added = 0;
+  const newJobs = [];
 
-  incoming.forEach(j => {
-    const url = (j.url||'').split('?')[0];
-    const tc  = (j.role||'').trim().toLowerCase() + '|' + (j.company||'').trim().toLowerCase();
-    if ((url && existingUrls.has(url)) || existingTC.has(tc)) return;
+  incoming.forEach((j, idx) => {
+    const cleanUrl  = (j.url || '').split('?')[0].replace(/\/$/, '');
+    const liId      = extractLinkedInJobId(cleanUrl);
 
-    j.id          = 'bm' + Date.now() + Math.random().toString(36).slice(2,6);
-    j.roleType    = j.roleType    || 'Business Analyst';
-    j.priority    = j.priority    || 'Medium';
-    j.status      = (j.status === 'wishlist' || !j.status) ? 'saved' : j.status;
-    j.dateApplied = j.dateApplied || new Date().toISOString();
-    j.source      = j.source      || 'LinkedIn';
-    j.notes       = j.notes       || '';
-    j.salary      = j.salary      || '';
-    j.checklist   = j.checklist   || {};
-    j.isDemo      = false;
+    // Primary dedup: LinkedIn numeric job ID
+    if (liId && existingLiIds.has(liId)) return;
+    // Secondary dedup: exact URL match
+    if (cleanUrl && existingUrls.has(cleanUrl)) return;
 
-    existing.push(j);
-    existingUrls.add(url);
-    existingTC.add(tc);
+    // Assign stable ID — use LinkedIn job ID if available, else timestamp+index
+    const stableId = liId || ('bm_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 5));
+
+    const enriched = {
+      ...j,
+      id:          stableId,
+      linkedInId:  liId || '',
+      url:         cleanUrl,
+      roleType:    j.roleType    || 'Business Analyst',
+      status:      (!j.status || j.status === 'wishlist') ? 'saved' : j.status,
+      dateApplied: j.dateApplied || new Date().toISOString(),
+      source:      j.source      || 'LinkedIn',
+      notes:       j.notes       || '',
+      salary:      j.salary      || '',
+      checklist:   j.checklist   || {},
+      isDemo:      false,
+    };
+
+    existing.push(enriched);
+    newJobs.push(enriched);
+    if (liId) existingLiIds.add(liId);
+    if (cleanUrl) existingUrls.add(cleanUrl);
     added++;
   });
 
-  if (added > 0) {
-    saveJobs(existing);
-    renderKanban();
-    updateStats();
-    renderAnalytics();
-    toast(`🎉 ${added} job(s) imported from LinkedIn! Fetching JDs in background...`, 'success');
-    // Auto-fetch JDs for all newly imported jobs that have URLs
-    setTimeout(() => fetchMissingJDs(), 1500);
-  } else {
-    toast('All jobs are already in your tracker — nothing new added.', '');
+  if (added === 0) {
+    toast(`✅ All ${incoming.length} jobs already in tracker — nothing new.`, 'success');
+    return;
   }
+
+  saveJobs(existing);
+  renderKanban();
+  updateStats();
+  renderAnalytics();
+  updateDbStatusLine({ source: 'supabase' });
+  toast(`🎉 ${added} new job(s) imported! ${incoming.length - added > 0 ? `(${incoming.length - added} duplicates skipped)` : ''}`, 'success');
+
+  // Auto-rank any that have JDs
+  setTimeout(() => {
+    const toRank = newJobs.filter(j => j.jd && j.jd.length > 50);
+    if (toRank.length > 0) {
+      callBackend('/api/rank-jobs', { jobs: toRank.map(j => ({ id: j.id, role: j.role, company: j.company, roleType: j.roleType || '', jd: j.jd })) })
+        .then(data => {
+          if (!data.rankings) return;
+          const jobs = getJobs();
+          data.rankings.forEach(r => {
+            const job = jobs.find(j => j.id === r.id);
+            if (job) { job.aiScore = r.score; job.aiLabel = r.label; job.aiReason = r.reason; job.aiPriority = r.priority; }
+          });
+          saveJobs(jobs);
+          renderKanban();
+          toast(`🏆 AI scored ${data.rankings.length} new jobs`, 'success');
+        }).catch(() => {});
+    }
+  }, 2000);
 }
 
-// Stubs — old server-polling approach no longer needed
 function checkPendingCount() {}
 async function importPendingJobs() {}
 

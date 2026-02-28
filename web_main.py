@@ -367,6 +367,7 @@ def upsert_jobs():
                 "company":          j.get("company", ""),
                 "status":           j.get("status", "saved"),
                 "url":              j.get("url", ""),
+                "linkedInId":       j.get("linkedInId", ""),
                 "jd":               (j.get("jd") or "")[:8000],
                 "roleType":         j.get("roleType", ""),
                 "source":           j.get("source", ""),
