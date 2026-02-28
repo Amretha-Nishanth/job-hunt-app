@@ -692,14 +692,16 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
   </div>
 
   <div class="flex-between" style="margin-bottom:16px;">
-    <div class="card-title" style="margin-bottom:0;">📋 Job Application Tracker</div>
+    <div>
+      <div class="card-title" style="margin-bottom:2px;">📋 Job Application Tracker</div>
+      <div id="dbStatusLine" style="font-size:11px;color:var(--gray-400);"></div>
+    </div>
     <div class="flex-row">
       <button class="btn btn-primary btn-sm" onclick="openAddJobModal()">+ Add New Job</button>
       <button class="btn btn-sm" style="background:#0ea5e9;color:white;border:none;" onclick="openImportModal()">📥 Import from LinkedIn</button>
-      <button id="importPendingBtn" class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;display:none;" onclick="importPendingJobs()">⏳ Load Pending <span id="pendingCount" style="background:#92400e;color:white;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px;">0</span></button>
       <button class="btn btn-sm" style="background:#faf5ff;color:#7c3aed;border:1.5px solid #ddd6fe;" onclick="openRankModal()">🏆 AI Rank My Jobs</button>
       <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
-      <button class="btn btn-sm" style="background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;" onclick="clearDemoData()">🗑 Remove Demo</button>
+      <button class="btn btn-sm" style="background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;" onclick="confirmClearAll()">🗑 Clear All & Reset</button>
     </div>
   </div>
 
@@ -1684,31 +1686,133 @@ const COLS = ["saved","applied","screen","interview","offer","rejected"];
 const COL_LABELS = { saved:"💾 Saved", applied:"📨 Applied", screen:"📞 Recruiter Screen", interview:"🎙️ Interviewing", offer:"🏆 Offer", rejected:"❌ Rejected" };
 const COL_COLORS = { saved:"#6b7280", applied:"#3b82f6", screen:"#f59e0b", interview:"#8b5cf6", offer:"#10b981", rejected:"#ef4444" };
 
+// ─── STORAGE — localStorage + Supabase sync ──────────────────
+const SUPABASE_ENABLED = true; // will silently fall back if not configured
+
 function getJobs() { return JSON.parse(localStorage.getItem("jobs") || "[]"); }
-function saveJobs(jobs) { localStorage.setItem("jobs", JSON.stringify(jobs)); localStorage.setItem("jobs_initialized", "true"); }
+
+function saveJobs(jobs) {
+  localStorage.setItem("jobs", JSON.stringify(jobs));
+  localStorage.setItem("jobs_initialized", "true");
+  // Fire-and-forget sync to Supabase
+  syncJobsToSupabase(jobs);
+}
+
+async function syncJobsToSupabase(jobs) {
+  try {
+    const realJobs = jobs.filter(j => !j.isDemo);
+    if (!realJobs.length) return;
+    await fetch('/api/jobs/upsert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobs: realJobs })
+    });
+  } catch(e) { /* silent — localStorage is source of truth */ }
+}
+
+async function loadJobsFromSupabase() {
+  try {
+    const res = await fetch('/api/jobs');
+    if (!res.ok) return { count: 0, source: 'error' };
+    const data = await res.json();
+    if (data.error && !data.jobs) return { count: 0, source: 'not_configured' };
+
+    const sbJobs = data.jobs || [];
+    if (sbJobs.length === 0) return { count: 0, source: 'empty' };
+
+    // Supabase is the source of truth — overwrite localStorage entirely
+    // But keep any demo jobs that are local-only
+    const local = JSON.parse(localStorage.getItem('jobs') || '[]');
+    const demos = local.filter(j => j.isDemo);
+
+    // Merge: for each Supabase job, also pick up any local-only fields
+    // (e.g. aiScore computed since last sync)
+    const localMap = {};
+    local.filter(j => !j.isDemo).forEach(j => { localMap[j.id] = j; });
+
+    const merged = sbJobs.map(sj => {
+      const lj = localMap[sj.id] || {};
+      return {
+        ...sj,
+        // If supabase field is empty but local has it, keep local
+        jd:              sj.jd || lj.jd || '',
+        aiScore:         sj.aiScore != null ? sj.aiScore : lj.aiScore,
+        aiLabel:         sj.aiLabel || lj.aiLabel || '',
+        aiReason:        sj.aiReason || lj.aiReason || '',
+        aiPriority:      sj.aiPriority || lj.aiPriority || '',
+        resume_docx_b64: sj.resume_docx_b64 || lj.resume_docx_b64 || '',
+        cover_docx_b64:  sj.cover_docx_b64 || lj.cover_docx_b64 || '',
+        resume_variant:  sj.resume_variant || lj.resume_variant || '',
+        resume_filename: sj.resume_filename || lj.resume_filename || '',
+        cover_filename:  sj.cover_filename || lj.cover_filename || '',
+      };
+    });
+
+    const final = [...demos, ...merged];
+    localStorage.setItem('jobs', JSON.stringify(final));
+    localStorage.setItem('jobs_initialized', 'true');
+    return { count: merged.length, source: 'supabase' };
+  } catch(e) {
+    console.warn('Supabase load failed, using localStorage:', e.message);
+    return { count: 0, source: 'error' };
+  }
+}
+
+function updateDbStatusLine(loadResult) {
+  const el = document.getElementById('dbStatusLine');
+  if (!el) return;
+  const real = getJobs().filter(j => !j.isDemo);
+  const withJD = real.filter(j => j.jd && j.jd.length > 50).length;
+  const withScore = real.filter(j => j.aiScore != null).length;
+  const withDocs = real.filter(j => j.resume_docx_b64).length;
+
+  if (loadResult.source === 'supabase') {
+    el.innerHTML = `☁️ <strong>${real.length}</strong> jobs synced · ${withJD} with JD · ${withScore} scored · ${withDocs} with docs`;
+    el.style.color = '#16a34a';
+  } else if (loadResult.source === 'empty') {
+    el.innerHTML = `☁️ Cloud DB connected — <strong>no jobs yet</strong>. Import from LinkedIn to get started.`;
+    el.style.color = '#0369a1';
+  } else if (loadResult.source === 'not_configured') {
+    el.innerHTML = `⚠️ Supabase not configured — data saved locally only`;
+    el.style.color = '#b45309';
+  } else {
+    const localCount = getJobs().filter(j => !j.isDemo).length;
+    el.innerHTML = localCount > 0
+      ? `💾 <strong>${localCount}</strong> jobs in local storage (Supabase offline)`
+      : `💾 No jobs yet — import from LinkedIn`;
+    el.style.color = '#6b7280';
+  }
+}
 
 function initSampleJobs() {
-  // Only show demo cards on first ever visit — not after user clears them
-  if (localStorage.getItem("jobs_initialized")) return;
-  localStorage.setItem("jobs_initialized", "true");
-  const today = new Date();
-  const d8 = new Date(today); d8.setDate(today.getDate()-8);
-  const d3 = new Date(today); d3.setDate(today.getDate()-3);
-  const d1 = new Date(today); d1.setDate(today.getDate()-1);
-  saveJobs([
-    { id: "j1", company: "Grab", role: "Product Owner – Payments & Disbursements", roleType: "Product Owner", status: "interview", salary: "11,000 – 14,000", priority: "High", url: "https://grab.careers", source: "LinkedIn", notes: "⚠️ DEMO — delete before use. In-house PO role for GrabPay squad.", dateApplied: d8.toISOString(), checklist: {}, isDemo: true },
-    { id: "j2", company: "Sea Limited / Shopee", role: "Senior Product Manager – Seller Experience", roleType: "Product Manager", status: "applied", salary: "12,000 – 16,000", priority: "High", url: "https://careers.sea.com", source: "LinkedIn", notes: "⚠️ DEMO — delete before use. In-house PM owning seller onboarding product.", dateApplied: d3.toISOString(), checklist: {}, isDemo: true },
-    { id: "j3", company: "Airwallex", role: "Product Manager – Business Banking", roleType: "Product Manager", status: "saved", salary: "13,000 – 17,000", priority: "Medium", url: "https://www.airwallex.com/careers", source: "Direct", notes: "⚠️ DEMO — delete before use. In-house PM building B2B payments product.", dateApplied: d1.toISOString(), checklist: {}, isDemo: true }
-  ]);
+  // Only show demo cards on very first visit, and only if Supabase is empty
+  if (localStorage.getItem('jobs_initialized')) return;
+  localStorage.setItem('jobs_initialized', 'true');
+  // Don't insert demos — user will import their own jobs
 }
-initSampleJobs();
 
-function clearDemoData() {
-  if (!confirm("Remove the 3 demo cards? Your real applications will stay.")) return;
-  saveJobs(getJobs().filter(j => !j.isDemo));
+async function confirmClearAll() {
+  const real = getJobs().filter(j => !j.isDemo);
+  const msg = real.length > 0
+    ? `⚠️ This will permanently delete ALL ${real.length} jobs from BOTH your browser AND the cloud database.\n\nThis cannot be undone. Are you sure?`
+    : `Clear local storage and reset? (No cloud jobs found)`;
+  if (!confirm(msg)) return;
+  if (real.length > 0 && !confirm('Last chance — delete everything and start fresh?')) return;
+
+  // Clear cloud
+  try {
+    await fetch('/api/jobs/clear-all', { method: 'POST' });
+  } catch(e) {}
+
+  // Clear local
+  localStorage.removeItem('jobs');
+  localStorage.removeItem('jobs_initialized');
+
   renderKanban(); updateStats(); renderAnalytics();
-  toast("Demo cards removed — the board is yours!", "success");
+  updateDbStatusLine({ source: 'empty' });
+  toast('🗑 All jobs cleared — ready for a fresh import!', 'success');
 }
+
 
 // ========== LIST VIEW (replaces Kanban) ==========
 
@@ -1948,6 +2052,8 @@ function deleteJob(id) {
   if (!confirm("Delete this job card?")) return;
   const jobs = getJobs().filter(j => j.id !== id);
   saveJobs(jobs);
+  // Delete from Supabase too
+  fetch('/api/jobs/delete', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id}) }).catch(()=>{});
   renderKanban(); updateStats();
   toast("Job removed");
 }
@@ -2169,82 +2275,95 @@ async function openApplyKitForJob(jobId) {
   if (!j) return;
 
   document.getElementById("applyKitTitle").textContent = `⚡ Apply Kit – ${j.company} · ${j.role}`;
+  document.getElementById("applyKitModal").style.display = "flex";
+
+  // If docs already generated, show them immediately without re-generating
+  if (j.resume_docx_b64 && j.cover_docx_b64) {
+    showKitDocs(j, j.resume_docx_b64, j.cover_docx_b64, j.resume_variant || 'BA', j.resume_filename, j.cover_filename, j.resume_generated_at);
+    return;
+  }
+
+  // Otherwise generate fresh
+  await generateKitDocs(j);
+}
+
+function showKitDocs(j, resumeB64, coverB64, variant, resumeFile, coverFile, generatedAt) {
+  const variantLabels = { DPM: 'Digital Product Manager', PO: 'Product Owner', BA: 'Business Analyst' };
+  const variantLabel = variantLabels[variant] || variant;
+  const generatedLabel = generatedAt ? `Generated ${new Date(generatedAt).toLocaleDateString('en-SG')}` : 'Previously generated';
+
+  document.getElementById("applyKitContent").innerHTML = `
+    <div style="grid-column:1/-1;">
+      <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">✅ Documents ready</div>
+          <div style="font-size:12px;color:var(--gray-500);">${variantLabel} template · ${generatedLabel}</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="generateKitDocs(getJobs().find(j=>j.id==='${j.id}'))" style="font-size:12px;">🔄 Regenerate</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:8px;">📄</div>
+          <div style="font-weight:600;margin-bottom:4px;">Tailored Resume</div>
+          <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">ATS-optimised · ${variantLabel}</div>
+          <button class="btn btn-primary" onclick="downloadB64('${resumeB64}','${resumeFile || 'Resume_' + j.company + '.docx'}')">⬇ Download Resume.docx</button>
+        </div>
+        <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:8px;">✉️</div>
+          <div style="font-weight:600;margin-bottom:4px;">Cover Letter</div>
+          <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">1 page · tailored to ${j.company}</div>
+          <button class="btn btn-secondary" onclick="downloadB64('${coverB64}','${coverFile || 'CoverLetter_' + j.company + '.docx'}')">⬇ Download Cover.docx</button>
+        </div>
+      </div>
+      ${!j.jd ? '<div style="margin-top:12px;padding:10px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">⚠️ No JD was captured — documents use your profile only. Add a JD and regenerate for better tailoring.</div>' : ''}
+      <div style="text-align:center;margin-top:16px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal(\'applyKitModal\')">Close</button>
+      </div>
+    </div>`;
+}
+
+function downloadB64(b64, filename) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function generateKitDocs(j) {
+  if (!j) return;
   document.getElementById("applyKitContent").innerHTML = `
     <div style="grid-column:1/-1;text-align:center;padding:40px;">
       <span class="spinner spinner-blue" style="width:32px;height:32px;border-width:3px;"></span>
       <div style="margin-top:12px;color:var(--gray-400);">Generating tailored resume & cover letter for ${j.company}...</div>
-      <div style="margin-top:6px;font-size:12px;color:var(--gray-400);">This takes about 5 seconds</div>
+      <div style="margin-top:6px;font-size:12px;color:var(--gray-400);">Takes about 5 seconds</div>
     </div>`;
-  document.getElementById("applyKitModal").style.display = "flex";
 
   const isAI = j.jd ? /(ai|machine learning|llm|generative|artificial intelligence|claude|gpt|openai)/i.test(j.jd) : false;
 
   try {
     const data = await callBackend('/api/generate-docs', {
-      role: j.role,
-      company: j.company,
-      jd: j.jd || '',
-      roleType: j.roleType || '',
-      isAI
+      role: j.role, company: j.company, jd: j.jd || '', roleType: j.roleType || '', isAI
     });
-
     if (data.error) throw new Error(data.error);
 
-    // Helper to trigger .docx download from base64
-    function downloadDocx(b64, filename) {
-      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    // Save to job in localStorage + Supabase
+    const allJobs = getJobs();
+    const jIdx = allJobs.findIndex(jb => jb.id === j.id);
+    if (jIdx > -1) {
+      allJobs[jIdx].resume_docx_b64 = data.resume_b64;
+      allJobs[jIdx].cover_docx_b64 = data.cover_b64;
+      allJobs[jIdx].resume_variant = data.variant;
+      allJobs[jIdx].resume_filename = data.resume_filename;
+      allJobs[jIdx].cover_filename = data.cover_filename;
+      allJobs[jIdx].resume_generated_at = new Date().toISOString();
+      saveJobs(allJobs);
+      j = allJobs[jIdx]; // update local ref
     }
 
-    const variantLabels = { DPM: 'Digital Product Manager', PO: 'Product Owner', BA: 'Business Analyst' };
-    const variantLabel = variantLabels[data.variant] || data.variant;
-
-    document.getElementById("applyKitContent").innerHTML = `
-      <div style="grid-column:1/-1;">
-        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:16px;">
-          <div style="font-weight:700;font-size:15px;margin-bottom:4px;">✅ Documents ready!</div>
-          <div style="font-size:13px;color:var(--gray-500);">Generated using your <strong>${variantLabel}</strong> CV template, tailored for ${j.company}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
-            <div style="font-size:28px;margin-bottom:8px;">📄</div>
-            <div style="font-weight:600;margin-bottom:4px;">Tailored Resume</div>
-            <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">ATS-optimised, max 2 pages</div>
-            <button class="btn btn-primary" onclick="(function(){
-              var b='${data.resume_b64}';
-              var bytes=Uint8Array.from(atob(b),function(c){return c.charCodeAt(0)});
-              var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-              var url=URL.createObjectURL(blob);
-              var a=document.createElement('a');a.href=url;a.download='${data.resume_filename}';a.click();
-              setTimeout(function(){URL.revokeObjectURL(url)},2000);
-            })()">⬇ Download Resume.docx</button>
-          </div>
-          <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
-            <div style="font-size:28px;margin-bottom:8px;">✉️</div>
-            <div style="font-weight:600;margin-bottom:4px;">Cover Letter</div>
-            <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">1 page, tailored to ${j.company}</div>
-            <button class="btn btn-secondary" onclick="(function(){
-              var b='${data.cover_b64}';
-              var bytes=Uint8Array.from(atob(b),function(c){return c.charCodeAt(0)});
-              var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-              var url=URL.createObjectURL(blob);
-              var a=document.createElement('a');a.href=url;a.download='${data.cover_filename}';a.click();
-              setTimeout(function(){URL.revokeObjectURL(url)},2000);
-            })()">⬇ Download Cover.docx</button>
-          </div>
-        </div>
-        ${!j.jd ? '<div style="margin-top:12px;padding:10px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">⚠️ No JD was available — documents are based on your profile only. Click "⚡ Fetch JD" on the job row and regenerate for a more tailored result.</div>' : ''}
-        <div style="text-align:center;margin-top:16px;">
-          <button class="btn btn-ghost btn-sm" onclick="closeModal('applyKitModal')">Close</button>
-          <button class="btn btn-sm btn-secondary" style="margin-left:8px;" onclick="openApplyKitForJob('${j.id}')">🔄 Regenerate</button>
-        </div>
-      </div>`;
-
-    toast("✅ Documents ready — click to download!", "success");
+    showKitDocs(j, data.resume_b64, data.cover_b64, data.variant, data.resume_filename, data.cover_filename, new Date().toISOString());
+    toast("✅ Documents ready!", "success");
   } catch(e) {
     document.getElementById("applyKitContent").innerHTML = `
       <div style="grid-column:1/-1;padding:20px;color:red;text-align:center;">
@@ -2575,34 +2694,50 @@ document.querySelectorAll(".modal-overlay").forEach(overlay => {
 });
 
 // ========== INIT ==========
-renderKanban();
-updateStats();
-renderAnalytics();
-renderTargetCompanies();
-renderSalaryBars();
-renderReferrals();
+(async () => {
+  // Load from Supabase first — it's the source of truth
+  const loadResult = await loadJobsFromSupabase();
 
-// Check for bookmarklet data in URL hash (must run after renderKanban is ready)
-checkHashImport();
+  // If nothing in cloud and nothing local, skip demo jobs
+  // (user will import fresh from LinkedIn)
+  initSampleJobs();
 
-// Auto-rank jobs that have JDs but haven't been scored yet
-setTimeout(async () => {
-  const allJobs = getJobs().filter(j => !j.isDemo && j.jd && j.aiScore == null);
-  if (allJobs.length === 0) return;
-  try {
-    const payload = allJobs.map(j => ({ id: j.id, role: j.role, company: j.company, roleType: j.roleType || '', jd: j.jd }));
-    const data = await callBackend('/api/rank-jobs', { jobs: payload });
-    if (!data.rankings) return;
-    const jobs = getJobs();
-    data.rankings.forEach(r => {
-      const job = jobs.find(j => String(j.id) === String(r.id));
-      if (job) { job.aiScore = r.score; job.aiLabel = r.label; job.aiReason = r.reason; job.aiPriority = r.priority; }
-    });
-    saveJobs(jobs);
-    renderKanban();
-    toast(`🏆 AI scored ${data.rankings.length} jobs`, 'success');
-  } catch(e) { /* silent */ }
-}, 3000);
+  renderKanban();
+  updateStats();
+  renderAnalytics();
+  renderTargetCompanies();
+  renderSalaryBars();
+  renderReferrals();
+  updateDbStatusLine(loadResult);
+  checkHashImport();
+
+  // Show appropriate toast
+  if (loadResult.source === 'supabase' && loadResult.count > 0) {
+    toast(`☁️ Loaded ${loadResult.count} jobs from cloud`, 'success');
+  } else if (loadResult.source === 'empty') {
+    toast('☁️ Cloud DB connected — import your LinkedIn jobs to get started!', 'success');
+  }
+
+  // Auto-rank jobs that have JDs but no score yet
+  setTimeout(async () => {
+    const unscored = getJobs().filter(j => !j.isDemo && j.jd && j.jd.length > 50 && j.aiScore == null);
+    if (!unscored.length) return;
+    try {
+      const payload = unscored.map(j => ({ id: j.id, role: j.role, company: j.company, roleType: j.roleType || '', jd: j.jd }));
+      const data = await callBackend('/api/rank-jobs', { jobs: payload });
+      if (!data.rankings) return;
+      const jobs = getJobs();
+      data.rankings.forEach(r => {
+        const job = jobs.find(j => String(j.id) === String(r.id));
+        if (job) { job.aiScore = r.score; job.aiLabel = r.label; job.aiReason = r.reason; job.aiPriority = r.priority; }
+      });
+      saveJobs(jobs);
+      renderKanban();
+      updateDbStatusLine({ source: 'supabase' });
+      toast(`🏆 AI scored ${data.rankings.length} jobs`, 'success');
+    } catch(e) { /* silent */ }
+  }, 3000);
+})();
 
 // Set daily goal from storage
 const savedGoal = localStorage.getItem("dailyGoalTarget");
@@ -2619,54 +2754,69 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 function copyBookmarklet() {
   var appUrl = window.location.origin;
 
+  var bulkJDFetch = ''
+    + 'for(var ji=0;ji<allJobs.length;ji++){'
+    +   'msg.textContent="Fetching JD "+(ji+1)+"/"+allJobs.length+": "+allJobs[ji].company;'
+    +   'bar.style.width=Math.min(95,70+Math.round((ji/allJobs.length)*25))+"%";'
+    +   'try{'
+    +     'var resp=await fetch(allJobs[ji].url,{credentials:"include"});'
+    +     'if(resp.ok){'
+    +       'var html=await resp.text();'
+    +       'var tmp=document.createElement("div");tmp.innerHTML=html;'
+    +       'var jdSels=["[class*=description__content]","[class*=jobs-description]","[id*=job-details]"];'
+    +       'var jdText="";'
+    +       'for(var si=0;si<jdSels.length;si++){var el2=tmp.querySelector(jdSels[si]);if(el2&&el2.innerText&&el2.innerText.trim().length>100){jdText=el2.innerText.trim().substring(0,4000);break;}}'
+    +       'if(!jdText){var divs=tmp.querySelectorAll("div");for(var di=0;di<divs.length;di++){var dt=divs[di].innerText||"";if(dt.length>300&&(dt.toLowerCase().indexOf("responsibilities")>-1||dt.toLowerCase().indexOf("requirements")>-1)){jdText=dt.trim().substring(0,4000);break;}}}'
+    +       'allJobs[ji].jd=jdText;'
+    +     '}'
+    +   '}catch(e2){allJobs[ji].jd="";}'
+    +   'await new Promise(function(r){setTimeout(r,700);});'
+    + '}';
+
   var code = 'javascript:void(async function(){'
     + 'var u=location.href;'
 
-    // ── BULK MODE — LinkedIn Saved Jobs page ──────────────────────
+    // ── BULK MODE ──
     + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
       + 'var ov=document.createElement("div");'
-      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
-      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:32px 40px;max-width:360px;width:90%;text-align:center;"><div style="font-size:36px;margin-bottom:12px;">🔍</div><div style="font-size:17px;font-weight:700;color:#0a66c2;margin-bottom:8px;">Scanning Saved Jobs</div><div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:16px;">Loading...</div><div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;"><div id="jt-bar" style="background:#0a66c2;height:100%;width:5%;transition:width 0.4s;border-radius:8px;"></div></div><div id="jt-count" style="font-size:12px;color:#888;margin-top:10px;">0 jobs found</div></div>\';'
+      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
+      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:28px 36px;max-width:380px;width:90%;text-align:center;"><div style="font-size:32px;margin-bottom:8px;">🔍</div><div style="font-weight:700;color:#0a66c2;font-size:16px;margin-bottom:6px;">Scanning & Fetching JDs</div><div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:14px;">Loading...</div><div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;"><div id="jt-bar" style="background:#0a66c2;height:100%;width:5%;transition:width 0.3s;border-radius:8px;"></div></div><div id="jt-count" style="font-size:12px;color:#888;margin-top:8px;">0 jobs found</div></div>\';'
       + 'document.body.appendChild(ov);'
-      + 'var msg=document.getElementById("jt-msg");'
-      + 'var bar=document.getElementById("jt-bar");'
-      + 'var cnt=document.getElementById("jt-count");'
+      + 'var msg=document.getElementById("jt-msg"),bar=document.getElementById("jt-bar"),cnt=document.getElementById("jt-count");'
       + 'function scrapeDOM(seen){'
         + 'var jobs=[];'
         + 'document.querySelectorAll("[data-chameleon-result-urn]").forEach(function(card){'
-          + 'var a=card.querySelector("a[href*=\'/jobs/view/\']");'
-          + 'if(!a)return;'
-          + 'var href=a.href.split("?")[0];'
-          + 'if(seen[href])return;seen[href]=true;'
-          + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&l.indexOf("Verified")===-1&&l.indexOf("Posted")===-1&&l.indexOf("applicant")===-1&&l.indexOf("ago")===-1;});'
-          + 'var t=lines[0]||"";var c=lines[1]||"Unknown";'
-          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,source:"LinkedIn",status:"saved",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString()});'
-        + '});'
-        + 'return jobs;'
+          + 'var a=card.querySelector("a[href*=\'/jobs/view/\']");if(!a)return;'
+          + 'var href=a.href.split("?")[0];if(seen[href])return;seen[href]=true;'
+          + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&["Verified","Posted","applicant","ago"].every(function(x){return l.indexOf(x)===-1;});});'
+          + 'var t=lines[0]||"",c=lines[1]||"Unknown";'
+          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString(),jd:""});'
+        + '});return jobs;'
       + '}'
       + 'function getNextBtn(){var btns=document.querySelectorAll("button,a");for(var i=0;i<btns.length;i++){var b=btns[i];var txt=(b.innerText||b.getAttribute("aria-label")||"").trim().toLowerCase();if((txt==="next"||txt.indexOf("next page")>-1)&&!b.disabled)return b;}return null;}'
-      + 'var allSeen={};var allJobs=[];var page=1;'
+      + 'var allSeen={},allJobs=[],page=1;'
       + 'while(true){'
-        + 'msg.textContent="Page "+page+": loading...";'
-        + 'for(var s=0;s<8;s++){window.scrollBy(0,500);await new Promise(function(r){setTimeout(r,500);});}'
+        + 'msg.textContent="Page "+page+": scanning...";'
+        + 'for(var s=0;s<6;s++){window.scrollBy(0,500);await new Promise(function(r){setTimeout(r,400);});}'
         + 'var fresh=scrapeDOM(allSeen);allJobs=allJobs.concat(fresh);'
-        + 'cnt.textContent=allJobs.length+" jobs found";bar.style.width=Math.min(90,page*10)+"%";'
-        + 'var nb=getNextBtn();'
-        + 'if(!nb){msg.textContent="Done!";break;}'
+        + 'cnt.textContent=allJobs.length+" jobs found";bar.style.width=Math.min(65,5+page*8)+"%";'
+        + 'var nb=getNextBtn();if(!nb)break;'
         + 'msg.textContent="Page "+page+" ("+allJobs.length+" total) — going next...";nb.click();'
         + 'await new Promise(function(r){setTimeout(r,2500);});window.scrollTo(0,0);await new Promise(function(r){setTimeout(r,1000);});'
         + 'page++;if(page>25)break;'
       + '}'
-      + 'bar.style.width="100%";ov.remove();'
-      + 'if(!allJobs.length){alert("No jobs found.\\nGo to: https://www.linkedin.com/my-items/saved-jobs/");return;}'
-      + 'if(!confirm("Found "+allJobs.length+" job(s)!\\nClick OK to open your Job Tracker and import them."))return;'
-      // KEY FIX: encode as base64 in URL hash — no server round-trip needed
+      + 'if(!allJobs.length){ov.remove();alert("No saved jobs found.\\nGo to: https://www.linkedin.com/my-items/saved-jobs/");return;}'
+      + 'msg.textContent="Fetching job descriptions ("+allJobs.length+" jobs)...";'
+      + bulkJDFetch
+      + 'bar.style.width="100%";await new Promise(function(r){setTimeout(r,600);});ov.remove();'
+      + 'var wJD=allJobs.filter(function(j){return j.jd&&j.jd.length>50;}).length;'
+      + 'if(!confirm("Found "+allJobs.length+" jobs!\\n✅ "+wJD+" with JD captured\\n\\nClick OK to import into your Job Tracker."))return;'
       + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));'
       + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
       + 'return;'
     + '}'
 
-    // ── SINGLE JOB MODE ───────────────────────────────────────────
+    // ── SINGLE JOB MODE ──
     + 'var t="",c="",jd="";'
     + 'var pt=document.title.replace(/\\s*[|]\\s*LinkedIn.*/i,"").replace(/\\s*-\\s*LinkedIn.*/i,"").trim();'
     + 'var ai=pt.lastIndexOf(" at ");'
@@ -2675,11 +2825,11 @@ function copyBookmarklet() {
     + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
     + 'var cs=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]",".topcard__org-name-link"];'
     + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-    + 'var ds=["[class*=jobs-description__content]","[class*=description__content]","[class*=description]"];'
-    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,3000);break;}}'
+    + 'var ds=["[class*=jobs-description__content]","[class*=description__content]","[class*=description]","[id*=job-details]"];'
+    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
     + 'if(!t||t.length<2){alert("Could not detect job title. Make sure the page is fully loaded.");return;}'
-    + 'if(!confirm("Add to Job Tracker?\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"✅ JD captured":"⚠️ No JD")))return;'
-    + 'var single=[{role:t,company:c||"Unknown",url:u.split("?")[0],jd:jd,source:"LinkedIn",status:"saved",priority:"Medium",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
+    + 'if(!confirm("Add to Job Tracker?\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"✅ JD captured ("+jd.length+" chars)":"⚠️ No JD found — open the job first")))return;'
+    + 'var single=[{role:t,company:c||"Unknown",url:u.split("?")[0],jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
     + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));'
     + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
 
@@ -2689,7 +2839,6 @@ function copyBookmarklet() {
   if (box) { box.value = code; box.select(); }
 }
 
-// ─── READ BOOKMARKLET DATA FROM URL HASH ON PAGE LOAD ───────────────────────
 function checkHashImport() {
   const hash = window.location.hash;
   if (!hash.startsWith('#bm:')) return;

@@ -2,10 +2,14 @@ services:
   - type: web
     name: job-hunt-app
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && npm install
     startCommand: gunicorn wsgi:app
     envVars:
-      - key: GEMINI_API_KEY
-        sync: false
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11.0"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false

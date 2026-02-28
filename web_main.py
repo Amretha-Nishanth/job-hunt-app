@@ -15,6 +15,17 @@ app = Flask(__name__,
 CORS(app)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+def get_supabase():
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    try:
+        from supabase import create_client
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        return None
 
 def call_claude(prompt):
     if not ANTHROPIC_API_KEY:
@@ -322,6 +333,93 @@ def generic():
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     result = call_claude(full_prompt)
     return jsonify({"result": result})
+
+
+@app.route("/api/jobs", methods=["GET"])
+def get_jobs():
+    """Load all jobs from Supabase."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({"error": "Supabase not configured", "jobs": []}), 200
+    try:
+        res = sb.table("jobs").select("*").order("created_at", desc=False).execute()
+        return jsonify({"jobs": res.data or []})
+    except Exception as e:
+        return jsonify({"error": str(e), "jobs": []}), 200
+
+
+@app.route("/api/jobs/upsert", methods=["POST"])
+def upsert_jobs():
+    """Save/update jobs to Supabase. Upserts by job id."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({"error": "Supabase not configured"}), 200
+    data = request.json
+    jobs = data.get("jobs", [])
+    if not jobs:
+        return jsonify({"ok": True, "count": 0})
+    try:
+        # Whitelist all fields we want to persist — everything
+        def clean(j):
+            return {
+                "id":               str(j.get("id", "")),
+                "role":             j.get("role", ""),
+                "company":          j.get("company", ""),
+                "status":           j.get("status", "saved"),
+                "url":              j.get("url", ""),
+                "jd":               (j.get("jd") or "")[:8000],
+                "roleType":         j.get("roleType", ""),
+                "source":           j.get("source", ""),
+                "salary":           j.get("salary", ""),
+                "dateApplied":      j.get("dateApplied", ""),
+                "aiScore":          j.get("aiScore"),
+                "aiLabel":          j.get("aiLabel", ""),
+                "aiReason":         j.get("aiReason", ""),
+                "aiPriority":       j.get("aiPriority", ""),
+                "notes":            j.get("notes", ""),
+                "resume_docx_b64":  (j.get("resume_docx_b64") or "")[:500000],
+                "cover_docx_b64":   (j.get("cover_docx_b64") or "")[:500000],
+                "resume_variant":   j.get("resume_variant", ""),
+                "resume_filename":  j.get("resume_filename", ""),
+                "cover_filename":   j.get("cover_filename", ""),
+                "resume_generated_at": j.get("resume_generated_at", ""),
+            }
+        cleaned = [clean(j) for j in jobs if j.get("id")]
+        res = sb.table("jobs").upsert(cleaned, on_conflict="id").execute()
+        return jsonify({"ok": True, "count": len(cleaned)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jobs/delete", methods=["POST"])
+def delete_job():
+    """Delete a job from Supabase by id."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({"error": "Supabase not configured"}), 200
+    data = request.json
+    job_id = data.get("id")
+    if not job_id:
+        return jsonify({"error": "No id"}), 400
+    try:
+        sb.table("jobs").delete().eq("id", job_id).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/jobs/clear-all", methods=["POST"])
+def clear_all_jobs():
+    """Delete every job from Supabase — fresh start."""
+    sb = get_supabase()
+    if not sb:
+        return jsonify({"error": "Supabase not configured"}), 200
+    try:
+        # Delete all rows — Supabase requires a filter, use neq on a always-true condition
+        sb.table("jobs").delete().neq("id", "___never___").execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/generate-docs", methods=["POST"])
