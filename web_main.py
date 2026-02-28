@@ -1113,6 +1113,8 @@ def send_telegram(message):
         return False
 
 
+NOTIFICATION_EMAIL = "amretha.ammu@gmail.com"
+
 def send_email(subject, html_body):
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         return False
@@ -1120,11 +1122,11 @@ def send_email(subject, html_body):
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
         msg["From"]    = GMAIL_USER
-        msg["To"]      = GMAIL_USER
+        msg["To"]      = NOTIFICATION_EMAIL
         msg.attach(MIMEText(html_body, "html"))
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.send_message(msg)
+            server.sendmail(GMAIL_USER, [NOTIFICATION_EMAIL], msg.as_string())
         return True
     except Exception as e:
         print(f"Email error: {e}")
@@ -1309,7 +1311,6 @@ def _send_agent_notifications(summary):
                 f"   <i>{(j.get('aiReason') or '')[:100]}</i>"
             )
     lines.append("\n🔗 Open your tracker to download docs")
-    send_telegram("\n".join(lines))
 
     # Email
     rows_html = ""
@@ -1459,7 +1460,6 @@ def agent_cron():
         return jsonify({"error": str(e)}), 500
 
     if not to_run:
-        send_telegram("🤖 Daily run: all jobs up to date ✅")
         return jsonify({"status": "nothing_to_do"})
 
     def bg():
@@ -1472,12 +1472,10 @@ def agent_cron():
 
 @app.route("/api/test-notifications", methods=["POST"])
 def test_notifications():
-    tg  = send_telegram("🤖 <b>Job Agent test</b> — Telegram connected ✅")
-    em  = send_email("🤖 Job Agent — Email test",
-                     "<h2>Email connected ✅</h2><p>Notifications working.</p>")
+    em = send_email("🤖 Job Agent — Email test",
+                    "<h2>Email connected ✅</h2><p>Notifications working. Sending to amretha.ammu@gmail.com</p>")
     return jsonify({
-        "telegram": "✅ sent" if tg else "❌ not configured",
-        "email":    "✅ sent" if em else "❌ not configured"
+        "email": "✅ sent to amretha.ammu@gmail.com" if em else "❌ not configured — check GMAIL_USER and GMAIL_APP_PASSWORD"
     })
 
 
