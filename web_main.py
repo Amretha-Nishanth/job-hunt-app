@@ -14,30 +14,30 @@ app = Flask(__name__,
             static_folder=os.path.join(BASE_DIR, 'static'))
 CORS(app)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 def call_claude(prompt):
-    if not GROQ_API_KEY:
-        return "Error: GROQ_API_KEY not set. Add it in Render → Environment Variables."
+    if not ANTHROPIC_API_KEY:
+        return "Error: ANTHROPIC_API_KEY not set. Add it in Render → Environment Variables."
     try:
         res = http_requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
+            "https://api.anthropic.com/v1/messages",
             headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
             },
             json={
-                "model": "llama-3.3-70b-versatile",
+                "model": "claude-haiku-4-5-20251001",
                 "max_tokens": 2048,
-                "temperature": 0.7,
                 "messages": [{"role": "user", "content": prompt}]
             },
             timeout=60
         )
         data = res.json()
         if "error" in data:
-            return f"Groq API error: {data['error']['message']}"
-        return data["choices"][0]["message"]["content"]
+            return f"API error: {data['error']['message']}"
+        return data["content"][0]["text"]
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -322,6 +322,62 @@ def generic():
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     result = call_claude(full_prompt)
     return jsonify({"result": result})
+
+
+@app.route("/api/generate-docs", methods=["POST"])
+def generate_docs():
+    """Generate tailored resume + cover letter as .docx files using Node.js script."""
+    import subprocess, json as json_lib, tempfile, base64, os
+
+    data = request.json
+    role = data.get("role", "").strip()
+    company = data.get("company", "").strip()
+    jd = data.get("jd", "").strip()
+    role_type = data.get("roleType", "").strip()
+    is_ai = bool(data.get("isAI", False))
+
+    if not role or not company:
+        return jsonify({"error": "role and company are required"}), 400
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script_path = os.path.join(BASE_DIR, "gen_docs.js")
+        payload = json_lib.dumps({
+            "role": role,
+            "company": company,
+            "jd": jd[:3000] if jd else "",
+            "roleType": role_type,
+            "outputDir": tmpdir,
+            "isAI": is_ai
+        })
+
+        try:
+            result = subprocess.run(
+                ["node", script_path, payload],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode != 0:
+                return jsonify({"error": result.stderr or "Node script failed"}), 500
+
+            output = json_lib.loads(result.stdout.strip())
+            resume_path = output["resume"]
+            cover_path = output["cover"]
+
+            with open(resume_path, "rb") as f:
+                resume_b64 = base64.b64encode(f.read()).decode()
+            with open(cover_path, "rb") as f:
+                cover_b64 = base64.b64encode(f.read()).decode()
+
+            return jsonify({
+                "resume_b64": resume_b64,
+                "cover_b64": cover_b64,
+                "variant": output.get("variant", "BA"),
+                "resume_filename": f"Resume_{company.replace(' ','_')}.docx",
+                "cover_filename": f"CoverLetter_{company.replace(' ','_')}.docx"
+            })
+        except subprocess.TimeoutExpired:
+            return jsonify({"error": "Document generation timed out"}), 500
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/import-job", methods=["POST"])

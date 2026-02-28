@@ -1724,12 +1724,22 @@ function renderKanban() {
   if (!container) return;
   container.innerHTML = "";
 
-  // Group by status
+  // Group by status, sort each group by AI score descending
   const grouped = {};
   COLS.forEach(col => { grouped[col] = []; });
   jobs.forEach(j => {
     j.status = (j.status === 'wishlist') ? 'saved' : (j.status || 'saved');
     (grouped[j.status] || (grouped['saved'] = grouped['saved'] || [])).push(j);
+  });
+  // Sort each column by aiScore desc (unscored jobs go to bottom)
+  COLS.forEach(col => {
+    if (grouped[col]) {
+      grouped[col].sort((a, b) => {
+        const sa = a.aiScore != null ? a.aiScore : -1;
+        const sb = b.aiScore != null ? b.aiScore : -1;
+        return sb - sa;
+      });
+    }
   });
 
   let anyJobs = false;
@@ -2157,33 +2167,91 @@ async function openApplyKitForJob(jobId) {
   const jobs = getJobs();
   const j = jobs.find(j => j.id === jobId);
   if (!j) return;
-  
+
   document.getElementById("applyKitTitle").textContent = `⚡ Apply Kit – ${j.company} · ${j.role}`;
-  document.getElementById("applyKitContent").innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner spinner-blue" style="width:32px;height:32px;border-width:3px;"></span><div style="margin-top:12px;color:var(--gray-400);">Generating kit for '+j.company+'...</div></div>';
-  document.getElementById("applyKitModal").style.display="flex";
-  
-  const jd = j.jd || `${j.role} at ${j.company}`;
-  const jdContext = jd.length > 100 ? jd : `${j.role} position at ${j.company}. Role type: ${j.roleType || 'Business Analyst'}.`;
-  const resumePromise = callClaude(`Write an ATS-optimised resume for ${PROFILE.name} applying to ${j.role} at ${j.company}. Role type: ${j.roleType || 'Business Analyst'}. Use this candidate data: ${JSON.stringify({summary:PROFILE.summary,skills:PROFILE.skills,experience:PROFILE.experience,education:PROFILE.education,certification:PROFILE.certification})}. Job description context: ${jdContext.substring(0,2000)}. Include all sections with metrics.`);
-  const coverPromise = callClaude(`Write a compelling 300-word cover letter for ${PROFILE.name} applying to ${j.role} at ${j.company}. Job description: ${jdContext.substring(0,1000)}. Key highlights to mention: 5% KPMG project profitability increase, 30 man-days saved via automation, SAFe 6.0 PO certified, AI product (Claude Opus 4.6). Be specific to ${j.company} and the role. Professional tone.`);
-  
+  document.getElementById("applyKitContent").innerHTML = `
+    <div style="grid-column:1/-1;text-align:center;padding:40px;">
+      <span class="spinner spinner-blue" style="width:32px;height:32px;border-width:3px;"></span>
+      <div style="margin-top:12px;color:var(--gray-400);">Generating tailored resume & cover letter for ${j.company}...</div>
+      <div style="margin-top:6px;font-size:12px;color:var(--gray-400);">This takes about 5 seconds</div>
+    </div>`;
+  document.getElementById("applyKitModal").style.display = "flex";
+
+  const isAI = j.jd ? /(ai|machine learning|llm|generative|artificial intelligence|claude|gpt|openai)/i.test(j.jd) : false;
+
   try {
-    const [resume, cover] = await Promise.all([resumePromise, coverPromise]);
+    const data = await callBackend('/api/generate-docs', {
+      role: j.role,
+      company: j.company,
+      jd: j.jd || '',
+      roleType: j.roleType || '',
+      isAI
+    });
+
+    if (data.error) throw new Error(data.error);
+
+    // Helper to trigger .docx download from base64
+    function downloadDocx(b64, filename) {
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    const variantLabels = { DPM: 'Digital Product Manager', PO: 'Product Owner', BA: 'Business Analyst' };
+    const variantLabel = variantLabels[data.variant] || data.variant;
 
     document.getElementById("applyKitContent").innerHTML = `
-      <div class="panel-box">
-        <div class="panel-header">📄 Tailored Resume</div>
-        <div class="panel-body" id="akResume" style="max-height:400px;overflow-y:auto;">${resume}</div>
-        <div class="panel-footer"><button class="btn btn-sm btn-secondary" onclick="copyPanel('akResume')">📋 Copy</button><button class="btn btn-sm btn-ghost" onclick="downloadOutput('akResume','resume_${j.company}.txt')">⬇ Download</button></div>
-      </div>
-      <div class="panel-box">
-        <div class="panel-header">✉️ Cover Letter</div>
-        <div class="panel-body" id="akCover" style="max-height:400px;overflow-y:auto;">${cover}</div>
-        <div class="panel-footer"><button class="btn btn-sm btn-secondary" onclick="copyPanel('akCover')">📋 Copy</button><button class="btn btn-sm btn-ghost" onclick="downloadOutput('akCover','cover_${j.company}.txt')">⬇ Download</button></div>
+      <div style="grid-column:1/-1;">
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:20px;margin-bottom:16px;">
+          <div style="font-weight:700;font-size:15px;margin-bottom:4px;">✅ Documents ready!</div>
+          <div style="font-size:13px;color:var(--gray-500);">Generated using your <strong>${variantLabel}</strong> CV template, tailored for ${j.company}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:8px;">📄</div>
+            <div style="font-weight:600;margin-bottom:4px;">Tailored Resume</div>
+            <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">ATS-optimised, max 2 pages</div>
+            <button class="btn btn-primary" onclick="(function(){
+              var b='${data.resume_b64}';
+              var bytes=Uint8Array.from(atob(b),function(c){return c.charCodeAt(0)});
+              var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+              var url=URL.createObjectURL(blob);
+              var a=document.createElement('a');a.href=url;a.download='${data.resume_filename}';a.click();
+              setTimeout(function(){URL.revokeObjectURL(url)},2000);
+            })()">⬇ Download Resume.docx</button>
+          </div>
+          <div style="border:1.5px solid var(--gray-200);border-radius:10px;padding:16px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:8px;">✉️</div>
+            <div style="font-weight:600;margin-bottom:4px;">Cover Letter</div>
+            <div style="font-size:12px;color:var(--gray-400);margin-bottom:12px;">1 page, tailored to ${j.company}</div>
+            <button class="btn btn-secondary" onclick="(function(){
+              var b='${data.cover_b64}';
+              var bytes=Uint8Array.from(atob(b),function(c){return c.charCodeAt(0)});
+              var blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+              var url=URL.createObjectURL(blob);
+              var a=document.createElement('a');a.href=url;a.download='${data.cover_filename}';a.click();
+              setTimeout(function(){URL.revokeObjectURL(url)},2000);
+            })()">⬇ Download Cover.docx</button>
+          </div>
+        </div>
+        ${!j.jd ? '<div style="margin-top:12px;padding:10px;background:#fffbeb;border-radius:8px;font-size:12px;color:#92400e;">⚠️ No JD was available — documents are based on your profile only. Click "⚡ Fetch JD" on the job row and regenerate for a more tailored result.</div>' : ''}
+        <div style="text-align:center;margin-top:16px;">
+          <button class="btn btn-ghost btn-sm" onclick="closeModal('applyKitModal')">Close</button>
+          <button class="btn btn-sm btn-secondary" style="margin-left:8px;" onclick="openApplyKitForJob('${j.id}')">🔄 Regenerate</button>
+        </div>
       </div>`;
-    toast("Kit ready!", "success");
+
+    toast("✅ Documents ready — click to download!", "success");
   } catch(e) {
-    document.getElementById("applyKitContent").innerHTML = `<div style="grid-column:1/-1;padding:20px;color:red;">Error: ${e.message}</div>`;
+    document.getElementById("applyKitContent").innerHTML = `
+      <div style="grid-column:1/-1;padding:20px;color:red;text-align:center;">
+        <div style="font-size:24px;margin-bottom:8px;">⚠️</div>
+        <div>Error: ${e.message}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="closeModal('applyKitModal')">Close</button>
+      </div>`;
   }
 }
 
