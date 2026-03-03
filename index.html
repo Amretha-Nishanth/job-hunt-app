@@ -3563,7 +3563,6 @@ function copyBookmarklet() {
  if (dragBtn) { dragBtn.href = code; }
  window.__bookmarkletCode = code;
 }
-}
 function copyBookmarkletToClipboard() {
  var code = window.__bookmarkletCode;
  if (!code) { copyBookmarklet(); code = window.__bookmarkletCode; }
