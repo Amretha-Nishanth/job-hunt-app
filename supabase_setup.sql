@@ -55,5 +55,5 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
--- RLS: only service role can read/write (backend uses service key)
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
