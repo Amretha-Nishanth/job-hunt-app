@@ -683,6 +683,30 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 
 <!-- ========== TAB 3: JOB TRACKER ========== -->
 <div id="tab3" class="tab-content">
+  <!-- Bookmarklet Banner (always visible) -->
+  <!-- Bookmarklet Setup Banner -->
+  <div id="bookmarkletBanner" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:12px;padding:18px 20px;margin-bottom:16px;color:white;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:4px;">🔖 LinkedIn Bookmarklet — Import Jobs in 1 Click</div>
+    <div style="font-size:12px;opacity:0.9;margin-bottom:14px;">Click it on any LinkedIn job page to instantly add to your tracker. Works on saved jobs page too.</div>
+
+    <!-- Step-by-step -->
+    <div style="background:rgba(255,255,255,0.15);border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:12px;line-height:2;">
+      <strong>One-time setup (30 seconds):</strong><br>
+      1️⃣ &nbsp;Press <kbd style="background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;">Ctrl+Shift+B</kbd> (Windows) or <kbd style="background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;">Cmd+Shift+B</kbd> (Mac) to show bookmarks bar<br>
+      2️⃣ &nbsp;Click the <strong>📋 Copy Bookmarklet</strong> button below<br>
+      3️⃣ &nbsp;Right-click your bookmarks bar → <strong>"Add page…"</strong> or <strong>"New bookmark"</strong><br>
+      4️⃣ &nbsp;Name it <strong>"Job Tracker"</strong>, then <strong>delete the URL field</strong> and paste (<kbd style="background:rgba(0,0,0,0.3);padding:1px 6px;border-radius:4px;">Ctrl+V</kbd>) → Save<br>
+      5️⃣ &nbsp;Done! Click it on <strong>linkedin.com/jobs/view/…</strong> or <strong>linkedin.com/my-items/saved-jobs/</strong>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button id="copyBmBtn" onclick="copyBookmarkletToClipboard()" style="background:white;color:#4f46e5;border:none;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">
+        📋 Copy Bookmarklet
+      </button>
+      <span id="copyBmStatus" style="font-size:12px;opacity:0.9;"></span>
+    </div>
+  </div>
+
   <!-- Dashboard Stats -->
   <div class="grid-4" style="margin-bottom:20px;" id="statsGrid">
     <div class="stat-card blue"><div class="stat-icon">📨</div><div class="stat-label">Total Applications</div><div class="stat-value" id="statTotal">0</div></div>
@@ -951,29 +975,61 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
       <div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;">
         <div style="font-weight:700;margin-bottom:8px;">What the agent does autonomously:</div>
         <div style="display:flex;flex-direction:column;gap:6px;">
+          <div>0️⃣  <b>Scrape LinkedIn</b> saved jobs automatically — logs in and imports all jobs + JDs daily</div>
           <div>1️⃣  <b>AI Score</b> every job with a JD — ranks 1–10, labels fit, flags consulting roles</div>
           <div>2️⃣  <b>Generate Resume + Cover Letter</b> for all jobs scored ≥ 5 (right CV template auto-selected)</div>
           <div>3️⃣  <b>Save everything to Supabase</b> — scores, docs, JDs — nothing gets lost</div>
-          <div>4️⃣  <b>Notify you</b> via Telegram + Email with top matches & download links</div>
+          <div>4️⃣  <b>Notify you</b> via Email to amretha.ammu@gmail.com with top matches & download links</div>
         </div>
       </div>
 
-      <!-- Notification config -->
-      <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:14px;margin-bottom:20px;font-size:12px;">
-        <div style="font-weight:700;margin-bottom:6px;">⚙️ Required environment variables in Render:</div>
-        <code style="display:block;background:#fff;padding:8px;border-radius:6px;font-size:11px;line-height:1.8;">
-          TELEGRAM_BOT_TOKEN = (from @BotFather)<br>
-          TELEGRAM_CHAT_ID   = (from @userinfobot)<br>
-          GMAIL_USER         = your@gmail.com<br>
-          GMAIL_APP_PASSWORD = (Gmail App Password, not regular password)<br>
-          AGENT_CRON_SECRET  = jobhunt2025
-        </code>
-        <button class="btn btn-sm btn-ghost" style="margin-top:8px;" onclick="testNotifications()">🔔 Test Notifications</button>
-        <span id="notifTestResult" style="font-size:11px;margin-left:8px;"></span>
+      <!-- Credentials config -->
+      <div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:10px;padding:16px;margin-bottom:20px;font-size:12px;">
+        <div style="font-weight:700;margin-bottom:10px;font-size:13px;">⚙️ Setup — Enter Once</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-weight:600;display:block;margin-bottom:3px;">LinkedIn Email</label>
+            <input id="cfgLinkedInEmail" type="email" placeholder="your@email.com"
+              style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-weight:600;display:block;margin-bottom:3px;">LinkedIn Password</label>
+            <input id="cfgLinkedInPassword" type="password" placeholder="••••••••"
+              style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-weight:600;display:block;margin-bottom:3px;">Gmail Sender (for notifications)</label>
+            <input id="cfgGmailUser" type="email" placeholder="sender@gmail.com"
+              style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-weight:600;display:block;margin-bottom:3px;">Gmail App Password</label>
+            <input id="cfgGmailPassword" type="password" placeholder="xxxx xxxx xxxx xxxx"
+              style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button onclick="saveAgentConfig()" style="background:#1d4ed8;color:white;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">
+            💾 Save Credentials
+          </button>
+          <button class="btn btn-sm btn-ghost" onclick="testNotifications()">🔔 Test Email</button>
+          <span id="notifTestResult" style="font-size:11px;color:#374151;"></span>
+          <span id="cfgSaveResult" style="font-size:11px;color:#374151;"></span>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:#92400e;">
+          📧 Notifications → <strong>amretha.ammu@gmail.com</strong> &nbsp;|&nbsp;
+          🔒 Credentials stored securely on server &nbsp;|&nbsp;
+          ⏰ LinkedIn auto-scraped daily at 9am SGT
+        </div>
       </div>
 
       <!-- Action buttons -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+        <button id="liScrapeBtn" onclick="runLinkedInScrape()" style="background:linear-gradient(135deg,#0a66c2,#0d8fe6);border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;flex:1;">
+          🔗 Scrape LinkedIn Now
+        </button>
         <button id="agentRunBtn" class="btn btn-primary" onclick="runAgent(false)" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);border:none;flex:1;">
           🤖 Run Agent Now
         </button>
@@ -1063,11 +1119,23 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
         4. Name: <strong>Send to Job Tracker</strong> · paste as the URL → Save<br>
         5. ⚠️ <strong>Re-copy this bookmarklet</strong> if you ever redeploy the app (URL is baked in)
       </div>
+      <!-- Draggable link (best method) -->
+      <div style="margin-bottom:10px;text-align:center;">
+        <a id="bookmarkletLink" href="#"
+          style="display:inline-block;background:#fff;color:#4f46e5;font-weight:700;font-size:13px;padding:10px 22px;border-radius:8px;text-decoration:none;border:2px dashed #a5b4fc;cursor:grab;"
+          title="Drag this to your bookmarks bar!">
+          📌 Drag me to Bookmarks Bar
+        </a>
+      </div>
+      <div style="font-size:11px;opacity:0.85;margin-bottom:8px;text-align:center;">
+        ☝️ <strong>Drag the button above</strong> to your bookmarks bar — easiest method!<br>
+        Or copy the code below manually:
+      </div>
       <textarea id="bookmarkletBox" readonly
-        style="width:100%;height:60px;font-size:10px;font-family:monospace;border-radius:6px;padding:8px;box-sizing:border-box;background:#1e1b4b;color:#a5b4fc;border:none;resize:none;cursor:text;"
+        style="width:100%;height:50px;font-size:9px;font-family:monospace;border-radius:6px;padding:8px;box-sizing:border-box;background:#1e1b4b;color:#a5b4fc;border:none;resize:none;cursor:text;"
         onclick="this.select();" onfocus="this.select();"
         placeholder="Loading...">Loading bookmarklet code...</textarea>
-      <div style="font-size:11px;opacity:0.8;margin-top:6px;text-align:center;">👆 Click the box to select all, then Cmd+C / Ctrl+C to copy</div>
+      <div style="font-size:11px;opacity:0.75;margin-top:4px;text-align:center;">👆 Click box → Cmd+C / Ctrl+C to copy, then paste as bookmark URL</div>
     </div>
 
     <div style="margin-bottom:16px;">
@@ -2837,91 +2905,198 @@ document.getElementById("dailyGoalTarget").addEventListener("change", function()
 function copyBookmarklet() {
   var appUrl = window.location.origin;
 
-  var bulkJDFetch = ''
-    + 'for(var ji=0;ji<allJobs.length;ji++){'
-    +   'msg.textContent="Fetching JD "+(ji+1)+"/"+allJobs.length+": "+allJobs[ji].company;'
-    +   'bar.style.width=Math.min(95,70+Math.round((ji/allJobs.length)*25))+"%";'
-    +   'try{'
-    +     'var resp=await fetch(allJobs[ji].url,{credentials:"include"});'
-    +     'if(resp.ok){'
-    +       'var html=await resp.text();'
-    +       'var tmp=document.createElement("div");tmp.innerHTML=html;'
-    +       'var jdSels=["[class*=description__content]","[class*=jobs-description]","[id*=job-details]"];'
-    +       'var jdText="";'
-    +       'for(var si=0;si<jdSels.length;si++){var el2=tmp.querySelector(jdSels[si]);if(el2&&el2.innerText&&el2.innerText.trim().length>100){jdText=el2.innerText.trim().substring(0,4000);break;}}'
-    +       'if(!jdText){var divs=tmp.querySelectorAll("div");for(var di=0;di<divs.length;di++){var dt=divs[di].innerText||"";if(dt.length>300&&(dt.toLowerCase().indexOf("responsibilities")>-1||dt.toLowerCase().indexOf("requirements")>-1)){jdText=dt.trim().substring(0,4000);break;}}}'
-    +       'allJobs[ji].jd=jdText;'
-    +     '}'
-    +   '}catch(e2){allJobs[ji].jd="";}'
-    +   'await new Promise(function(r){setTimeout(r,700);});'
-    + '}';
+  // ── Build the bookmarklet code string ──
+  // Uses template to inject appUrl at build time.
+  // The bookmarklet runs on LinkedIn, encodes jobs as base64 in the URL hash,
+  // then navigates (or opens) the tracker which reads the hash on load.
 
-  var code = 'javascript:void(async function(){'
-    + 'var u=location.href;'
+  var code = 'javascript:(function(){' +
 
-    // ── BULK MODE ──
-    + 'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){'
-      + 'var ov=document.createElement("div");'
-      + 'ov.style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;";'
-      + 'ov.innerHTML=\'<div style="background:white;border-radius:16px;padding:28px 36px;max-width:380px;width:90%;text-align:center;"><div style="font-size:32px;margin-bottom:8px;">🔍</div><div style="font-weight:700;color:#0a66c2;font-size:16px;margin-bottom:6px;">Scanning & Fetching JDs</div><div id="jt-msg" style="font-size:13px;color:#555;margin-bottom:14px;">Loading...</div><div style="background:#e8f0fe;border-radius:8px;height:8px;overflow:hidden;"><div id="jt-bar" style="background:#0a66c2;height:100%;width:5%;transition:width 0.3s;border-radius:8px;"></div></div><div id="jt-count" style="font-size:12px;color:#888;margin-top:8px;">0 jobs found</div></div>\';'
-      + 'document.body.appendChild(ov);'
-      + 'var msg=document.getElementById("jt-msg"),bar=document.getElementById("jt-bar"),cnt=document.getElementById("jt-count");'
-      + 'function scrapeDOM(seen){'
-        + 'var jobs=[];'
-        + 'document.querySelectorAll("[data-chameleon-result-urn]").forEach(function(card){'
-          + 'var a=card.querySelector("a[href*=\'/jobs/view/\']");if(!a)return;'
-          + 'var href=a.href.split("?")[0];if(seen[href])return;seen[href]=true;'
-          + 'var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&["Verified","Posted","applicant","ago"].every(function(x){return l.indexOf(x)===-1;});});'
-          + 'var t=lines[0]||"",c=lines[1]||"Unknown";'
-          + 'var liMatch=href.match(/\/jobs\/view\/(\d+)/);var liId=liMatch?"li_"+liMatch[1]:"";'
-          + 'if(t.length>2)jobs.push({role:t,company:c,url:href,linkedInId:liId,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString(),jd:""});'
-        + '});return jobs;'
-      + '}'
-      + 'function getNextBtn(){var btns=document.querySelectorAll("button,a");for(var i=0;i<btns.length;i++){var b=btns[i];var txt=(b.innerText||b.getAttribute("aria-label")||"").trim().toLowerCase();if((txt==="next"||txt.indexOf("next page")>-1)&&!b.disabled)return b;}return null;}'
-      + 'var allSeen={},allJobs=[],page=1;'
-      + 'while(true){'
-        + 'msg.textContent="Page "+page+": scanning...";'
-        + 'for(var s=0;s<6;s++){window.scrollBy(0,500);await new Promise(function(r){setTimeout(r,400);});}'
-        + 'var fresh=scrapeDOM(allSeen);allJobs=allJobs.concat(fresh);'
-        + 'cnt.textContent=allJobs.length+" jobs found";bar.style.width=Math.min(65,5+page*8)+"%";'
-        + 'var nb=getNextBtn();if(!nb)break;'
-        + 'msg.textContent="Page "+page+" ("+allJobs.length+" total) — going next...";nb.click();'
-        + 'await new Promise(function(r){setTimeout(r,2500);});window.scrollTo(0,0);await new Promise(function(r){setTimeout(r,1000);});'
-        + 'page++;if(page>25)break;'
-      + '}'
-      + 'if(!allJobs.length){ov.remove();alert("No saved jobs found.\\nGo to: https://www.linkedin.com/my-items/saved-jobs/");return;}'
-      + 'msg.textContent="Fetching job descriptions ("+allJobs.length+" jobs)...";'
-      + bulkJDFetch
-      + 'bar.style.width="100%";await new Promise(function(r){setTimeout(r,600);});ov.remove();'
-      + 'var wJD=allJobs.filter(function(j){return j.jd&&j.jd.length>50;}).length;'
-      + 'if(!confirm("Found "+allJobs.length+" jobs!\\n✅ "+wJD+" with JD captured\\n\\nClick OK to import into your Job Tracker."))return;'
-      + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));'
-      + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
-      + 'return;'
-    + '}'
+    // ── Prevent double-run ──
+    'if(window.__jtRunning){alert("Already running — please wait.");return;}' +
+    'window.__jtRunning=true;' +
 
-    // ── SINGLE JOB MODE ──
-    + 'var t="",c="",jd="";'
-    + 'var pt=document.title.replace(/\\s*[|]\\s*LinkedIn.*/i,"").replace(/\\s*-\\s*LinkedIn.*/i,"").trim();'
-    + 'var ai=pt.lastIndexOf(" at ");'
-    + 'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}else{t=pt.trim();}'
-    + 'var ts=["h1[class*=job-title]","h1[class*=title]","[class*=job-details-jobs-unified-top-card__job-title] h1",".top-card-layout__title","h1"];'
-    + 'for(var i=0;i<ts.length;i++){var el=document.querySelector(ts[i]);if(el&&el.innerText.trim().length>2){t=el.innerText.trim();break;}}'
-    + 'var cs=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]",".topcard__org-name-link"];'
-    + 'for(var i=0;i<cs.length;i++){var el=document.querySelector(cs[i]);if(el&&el.innerText.trim().length>2){c=el.innerText.trim();break;}}'
-    + 'var ds=["[class*=jobs-description__content]","[class*=description__content]","[class*=description]","[id*=job-details]"];'
-    + 'for(var i=0;i<ds.length;i++){var el=document.querySelector(ds[i]);if(el&&el.innerText.trim().length>50){jd=el.innerText.trim().substring(0,4000);break;}}'
-    + 'if(!t||t.length<2){alert("Could not detect job title. Make sure the page is fully loaded.");return;}'
-    + 'if(!confirm("Add to Job Tracker?\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n"+(jd?"✅ JD captured ("+jd.length+" chars)":"⚠️ No JD found — open the job first")))return;'
-    + 'var cleanU=u.split("?")[0];var liM=cleanU.match(/\/jobs\/view\/(\d+)/);var liId=liM?"li_"+liM[1]:"";'
-    + 'var single=[{role:t,company:c||"Unknown",url:cleanU,linkedInId:liId,jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];'
-    + 'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));'
-    + 'window.open("' + appUrl + '/#bm:"+enc,"_blank");'
+    'var u=location.href;' +
 
-  + '}())';
+    // ══════════════════════════════════════════════
+    // BULK MODE — linkedin.com/my-items/saved-jobs/
+    // ══════════════════════════════════════════════
+    'if(u.indexOf("my-items")>-1||u.indexOf("saved-jobs")>-1){' +
+
+      // Overlay UI
+      'var ov=document.createElement("div");' +
+      'ov.id="jt-overlay";' +
+      'ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:2147483647;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;";' +
+      'ov.innerHTML=\'<div style="background:#fff;border-radius:16px;padding:28px 36px;max-width:400px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);">\' +' +
+        '\'<div style="font-size:36px;margin-bottom:10px;">🔍</div>\' +' +
+        '\'<div style="font-weight:700;color:#0a66c2;font-size:17px;margin-bottom:8px;">LinkedIn Job Importer</div>\' +' +
+        '\'<div id="jt-msg" style="font-size:13px;color:#444;margin-bottom:14px;min-height:18px;">Initialising...</div>\' +' +
+        '\'<div style="background:#e8f0fe;border-radius:8px;height:10px;overflow:hidden;margin-bottom:10px;">\' +' +
+          '\'<div id="jt-bar" style="background:linear-gradient(90deg,#0a66c2,#0d8fe6);height:100%;width:3%;transition:width 0.4s;border-radius:8px;"></div>\' +' +
+        '\'</div>\' +' +
+        '\'<div id="jt-count" style="font-size:12px;color:#888;">0 jobs found</div>\' +' +
+        '\'<button id="jt-cancel" style="margin-top:14px;padding:6px 18px;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:12px;background:#f5f5f5;">Cancel</button>\' +' +
+      '\'</div>\';' +
+      'document.body.appendChild(ov);' +
+      'var msg=document.getElementById("jt-msg"),bar=document.getElementById("jt-bar"),cnt=document.getElementById("jt-count");' +
+      'var cancelled=false;' +
+      'document.getElementById("jt-cancel").onclick=function(){cancelled=true;ov.remove();window.__jtRunning=false;};' +
+
+      // Helper: sleep
+      'function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}' +
+
+      // Helper: scrape visible job cards using multiple selector strategies
+      'function scrapeCards(seen){' +
+        'var jobs=[];' +
+        // Strategy 1: data-chameleon-result-urn (older LinkedIn)
+        'var cards=Array.from(document.querySelectorAll("[data-chameleon-result-urn]"));' +
+        // Strategy 2: job card list items (newer LinkedIn 2024-2025)
+        'if(!cards.length) cards=Array.from(document.querySelectorAll("li.scaffold-layout__list-item,li[class*=jobs-saved-jobs__list-item],li[class*=job-card-container],.job-card-container,.jobs-job-board-list__item"));' +
+        // Strategy 3: any li with a jobs/view link
+        'if(!cards.length){var allLi=document.querySelectorAll("li");cards=[];allLi.forEach(function(li){if(li.querySelector("a[href*=\'/jobs/view/\']"))cards.push(li);});}' +
+        'cards.forEach(function(card){' +
+          'var a=card.querySelector("a[href*=\'/jobs/view/\']");if(!a)return;' +
+          'var href=a.href.split("?")[0].split("#")[0];' +
+          'if(!href||seen[href])return;seen[href]=true;' +
+          // Extract title — try multiple selectors
+          'var t="";' +
+          'var tEls=card.querySelectorAll("[class*=job-card-list__title],[class*=job-card__title],strong,[class*=base-search-card__title],h3,h4");' +
+          'for(var i=0;i<tEls.length;i++){var tx=(tEls[i].innerText||"").trim();if(tx.length>2&&tx.length<200){t=tx;break;}}' +
+          'if(!t){var lines=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>2&&l.length<150;});t=lines[0]||"";}' +
+          // Extract company
+          'var c="Unknown";' +
+          'var cEls=card.querySelectorAll("[class*=job-card-container__primary-description],[class*=job-card-list__company-name],[class*=subtitle],[class*=company]");' +
+          'for(var i=0;i<cEls.length;i++){var cx=(cEls[i].innerText||"").trim();if(cx.length>1&&cx.length<100&&cx!==t){c=cx;break;}}' +
+          'if(c==="Unknown"){var lines2=card.innerText.trim().split("\\n").map(function(l){return l.trim();}).filter(function(l){return l.length>1&&l.length<100&&l!==t&&["Verified","Posted","applicant","ago","Save","Saved","Easy"].every(function(x){return l.indexOf(x)===-1;});});if(lines2[1])c=lines2[1];}' +
+          'var liMatch=href.match(/\\/jobs\\/view\\/(\\d+)/);var liId=liMatch?"li_"+liMatch[1]:"";' +
+          'if(t.length>1)jobs.push({role:t,company:c,url:href,linkedInId:liId,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString(),jd:""});' +
+        '});' +
+        'return jobs;' +
+      '}' +
+
+      // Helper: find next page button
+      'function getNextBtn(){' +
+        'var btns=Array.from(document.querySelectorAll("button[aria-label*=\'Next\'],button[aria-label*=\'next\'],li[class*=pagination] button:last-child,.artdeco-pagination__button--next"));' +
+        'for(var i=0;i<btns.length;i++){if(!btns[i].disabled&&!btns[i].getAttribute("disabled"))return btns[i];}' +
+        // fallback: any non-disabled button/link with text "Next"
+        'var all=document.querySelectorAll("button,a[role=\'button\']");' +
+        'for(var i=0;i<all.length;i++){var txt=(all[i].innerText||all[i].getAttribute("aria-label")||"").trim();if((txt.toLowerCase()==="next"||txt.toLowerCase()==="next page")&&!all[i].disabled)return all[i];}' +
+        'return null;' +
+      '}' +
+
+      // Scroll + scrape loop
+      'var allSeen={},allJobs=[],page=1;' +
+      '(async function(){' +
+        'while(!cancelled){' +
+          'msg.textContent="Page "+page+": scrolling & scanning...";' +
+          // Scroll down to trigger lazy loading
+          'for(var s=0;s<8;s++){window.scrollBy(0,600);await sleep(350);}' +
+          'window.scrollTo(0,0);await sleep(400);' +
+          'var fresh=scrapeCards(allSeen);allJobs=allJobs.concat(fresh);' +
+          'cnt.textContent=allJobs.length+" jobs found";' +
+          'bar.style.width=Math.min(60,4+page*7)+"%";' +
+          'var nb=getNextBtn();' +
+          'if(!nb){msg.textContent="All pages scanned ("+allJobs.length+" jobs)";break;}' +
+          'if(page>=30){msg.textContent="Limit reached (30 pages)";break;}' +
+          'msg.textContent="Page "+page+" done ("+allJobs.length+" total) — next page...";' +
+          'nb.click();await sleep(2800);window.scrollTo(0,0);await sleep(800);' +
+          'page++;' +
+        '}' +
+        'if(cancelled)return;' +
+        'if(!allJobs.length){' +
+          'ov.remove();window.__jtRunning=false;' +
+          'alert("No saved jobs found!\\n\\nMake sure you are on:\\nhttps://www.linkedin.com/my-items/saved-jobs/\\n\\nAnd that the page is fully loaded.");' +
+          'return;' +
+        '}' +
+        // Encode and open tracker
+        'bar.style.width="90%";msg.textContent="Preparing "+allJobs.length+" jobs for import...";' +
+        'await sleep(500);' +
+        'try{' +
+          'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));' +
+          'ov.remove();window.__jtRunning=false;' +
+          'location.href="' + appUrl + '/#bm:"+enc;' +
+        '}catch(encErr){' +
+          'ov.remove();window.__jtRunning=false;' +
+          'alert("Encoding error: "+encErr.message);' +
+        '}' +
+      '})();' +
+      'return;' +
+    '}' + // end bulk mode
+
+    // ══════════════════════════════════════════════
+    // SINGLE JOB MODE — linkedin.com/jobs/view/...
+    // ══════════════════════════════════════════════
+    'var t="",c="",jd="";' +
+
+    // Title from page title first
+    'var pt=document.title.replace(/\\s*[|]\\s*LinkedIn.*/i,"").replace(/\\s*-\\s*LinkedIn.*/i,"").trim();' +
+    'var ai=pt.lastIndexOf(" at ");' +
+    'if(ai>-1){t=pt.substring(0,ai).trim();c=pt.substring(ai+4).trim();}else{t=pt.trim();}' +
+
+    // Try DOM selectors for title (more reliable than page title)
+    'var titleSels=["h1[class*=job-details-jobs-unified-top-card__job-title]","h1[class*=job-title]",".job-details-jobs-unified-top-card__job-title h1","h1.t-24","h1"];' +
+    'for(var i=0;i<titleSels.length;i++){var el=document.querySelector(titleSels[i]);if(el&&(el.innerText||"").trim().length>2){t=(el.innerText||"").trim();break;}}' +
+
+    // Try DOM selectors for company
+    'var companySels=["[class*=job-details-jobs-unified-top-card__company-name] a","[class*=job-details-jobs-unified-top-card__company-name]","[class*=topcard__org-name-link]","[class*=jobs-unified-top-card__company-name]","a[class*=company]"];' +
+    'for(var i=0;i<companySels.length;i++){var el=document.querySelector(companySels[i]);if(el&&(el.innerText||"").trim().length>1){c=(el.innerText||"").trim();break;}}' +
+
+    // Try DOM selectors for job description
+    'var jdSels=["#job-details","[class*=jobs-description__content]","[class*=description__content]","[class*=jobs-box__html-content]","[class*=description]"];' +
+    'for(var i=0;i<jdSels.length;i++){var el=document.querySelector(jdSels[i]);if(el&&(el.innerText||"").trim().length>50){jd=(el.innerText||"").trim().substring(0,4000);break;}}' +
+
+    'if(!t||t.length<2){alert("Could not detect job title.\\n\\nPlease make sure:\\n1. The job page is fully loaded\\n2. You are on a LinkedIn job details page (linkedin.com/jobs/view/...)");window.__jtRunning=false;return;}' +
+
+    'if(!confirm("📌 Add to Job Tracker?\\n\\nRole: "+t+"\\nCompany: "+(c||"Unknown")+"\\n\\n"+(jd?"✅ Job description captured ("+jd.length+" chars)":"⚠️ No job description found\\n   Tip: Click the job first to expand the full description"))){window.__jtRunning=false;return;}' +
+
+    'try{' +
+      'var cleanU=u.split("?")[0].split("#")[0];' +
+      'var liM=cleanU.match(/\\/jobs\\/view\\/(\\d+)/);var liId=liM?"li_"+liM[1]:"";' +
+      'var single=[{role:t,company:c||"Unknown",url:cleanU,linkedInId:liId,jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];' +
+      'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));' +
+      'location.href="' + appUrl + '/#bm:"+enc;' +
+    '}catch(e){alert("Error: "+e.message);}' +
+    'window.__jtRunning=false;' +
+
+  '})();';  // Note: NOT async IIFE for compat — async is used only inside bulk mode
 
   var box = document.getElementById('bookmarkletBox');
-  if (box) { box.value = code; box.select(); }
+  if (box) { box.value = code; }
+
+  // Also set the draggable link href
+  var link = document.getElementById('bookmarkletLink');
+  if (link) { link.href = code; link.setAttribute('title', 'Drag to bookmarks bar — or right-click > Bookmark this link'); }
+
+  // Also update the always-visible drag button in tab3 banner
+  var dragBtn = document.getElementById('bookmarkletDragBtn');
+  if (dragBtn) { dragBtn.href = code; dragBtn.setAttribute('title', 'Drag to bookmarks bar!'); }
+
+  // Store the code for clipboard copy
+  window.__bookmarkletCode = code;
+}
+
+function copyBookmarkletToClipboard() {
+  var code = window.__bookmarkletCode;
+  if (!code) { copyBookmarklet(); code = window.__bookmarkletCode; }
+  if (!code) { alert('Bookmarklet not ready — please refresh and try again.'); return; }
+
+  var btn    = document.getElementById('copyBmBtn');
+  var status = document.getElementById('copyBmStatus');
+
+  function onSuccess() {
+    if (btn)    { btn.textContent = '✅ Copied!'; setTimeout(function(){ btn.textContent = '📋 Copy Bookmarklet'; }, 3000); }
+    if (status) { status.textContent = '✅ Copied! Now right-click your bookmarks bar → Add bookmark → paste as the URL'; }
+  }
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(code).then(onSuccess).catch(function() { fallbackCopy(code, onSuccess); });
+  } else { fallbackCopy(code, onSuccess); }
+}
+
+function fallbackCopy(text, cb) {
+  var box = document.getElementById('bookmarkletBox');
+  if (box) { box.select(); try { document.execCommand('copy'); if(cb) cb(); } catch(e) { prompt('Copy all of this:', text); } }
+  else { prompt('Copy all of this:', text); }
 }
 
 function extractLinkedInJobId(url) {
@@ -3045,11 +3220,193 @@ async function importPendingJobs() {}
 
 // ─── AGENT ──────────────────────────────────────────────────
 
+async function saveAgentConfig() {
+  const liEmail = document.getElementById('cfgLinkedInEmail').value.trim();
+  const liPw    = document.getElementById('cfgLinkedInPassword').value.trim();
+  const gmUser  = document.getElementById('cfgGmailUser').value.trim();
+  const gmPw    = document.getElementById('cfgGmailPassword').value.trim();
+  const result  = document.getElementById('cfgSaveResult');
+
+  if (!liEmail && !liPw && !gmUser && !gmPw) {
+    result.textContent = '⚠️ Nothing entered';
+    return;
+  }
+
+  result.textContent = 'Saving...';
+  try {
+    const payload = { secret: 'jobhunt2025' };
+    if (liEmail) payload.LINKEDIN_EMAIL    = liEmail;
+    if (liPw)    payload.LINKEDIN_PASSWORD = liPw;
+    if (gmUser)  payload.GMAIL_USER        = gmUser;
+    if (gmPw)    payload.GMAIL_APP_PASSWORD = gmPw;
+
+    const data = await fetch('/api/settings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(r => r.json());
+
+    if (data.error) {
+      result.textContent = '❌ ' + data.error;
+    } else {
+      result.style.color = '#16a34a';
+      result.textContent = '✅ Saved! LinkedIn scrape will now work on next cron or manual run.';
+      // Clear password fields for security
+      document.getElementById('cfgLinkedInPassword').value = '';
+      document.getElementById('cfgGmailPassword').value = '';
+      // Reload to show what's set
+      loadAgentConfig();
+    }
+  } catch(e) {
+    result.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+async function loadAgentConfig() {
+  try {
+    const data = await fetch('/api/settings/load').then(r => r.json());
+    if (data.LINKEDIN_EMAIL) {
+      document.getElementById('cfgLinkedInEmail').value = data.LINKEDIN_EMAIL;
+      document.getElementById('cfgLinkedInEmail').placeholder = data.LINKEDIN_EMAIL;
+    }
+    if (data.GMAIL_USER) {
+      document.getElementById('cfgGmailUser').value = data.GMAIL_USER;
+    }
+    if (data.linkedin_pw_set) {
+      document.getElementById('cfgLinkedInPassword').placeholder = '••••••• (already set)';
+    }
+    if (data.gmail_pw_set) {
+      document.getElementById('cfgGmailPassword').placeholder = '••••••• (already set)';
+    }
+  } catch(e) { /* settings not critical */ }
+}
+
+async function saveAgentConfig() {
+  const email    = document.getElementById('cfgLinkedInEmail').value.trim();
+  const password = document.getElementById('cfgLinkedInPassword').value.trim();
+  const gmail    = document.getElementById('cfgGmailUser').value.trim();
+  const gmailPw  = document.getElementById('cfgGmailPassword').value.trim();
+  const statusEl = document.getElementById('cfgSaveResult');
+
+  if (!email && !password && !gmail && !gmailPw) {
+    statusEl.textContent = '⚠️ Nothing to save';
+    statusEl.style.color = '#b45309';
+    return;
+  }
+
+  statusEl.textContent = 'Saving...';
+  statusEl.style.color = '#374151';
+
+  const payload = { secret: 'jobhunt2025' };
+  if (email)    payload.LINKEDIN_EMAIL    = email;
+  if (password) payload.LINKEDIN_PASSWORD = password;
+  if (gmail)    payload.GMAIL_USER        = gmail;
+  if (gmailPw)  payload.GMAIL_APP_PASSWORD = gmailPw;
+
+  try {
+    const res = await fetch('/api/settings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(r => r.json());
+
+    if (res.status === 'ok') {
+      statusEl.textContent = `✅ Saved: ${res.saved.join(', ')}`;
+      statusEl.style.color = '#16a34a';
+      // Clear password fields after save for security
+      document.getElementById('cfgLinkedInPassword').value = '';
+      document.getElementById('cfgGmailPassword').value = '';
+      document.getElementById('cfgLinkedInPassword').placeholder = '✅ Password saved';
+      document.getElementById('cfgGmailPassword').placeholder = '✅ Password saved';
+    } else {
+      statusEl.textContent = '❌ ' + (res.error || 'Save failed');
+      statusEl.style.color = '#dc2626';
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ Error: ' + e.message;
+    statusEl.style.color = '#dc2626';
+  }
+}
+
+async function loadAgentConfig() {
+  try {
+    const res = await fetch('/api/settings/load').then(r => r.json());
+    if (res.error) return;
+    if (res.LINKEDIN_EMAIL)
+      document.getElementById('cfgLinkedInEmail').value = res.LINKEDIN_EMAIL;
+    if (res.linkedin_pw_set)
+      document.getElementById('cfgLinkedInPassword').placeholder = '✅ Password saved';
+    if (res.GMAIL_USER)
+      document.getElementById('cfgGmailUser').value = res.GMAIL_USER;
+    if (res.gmail_pw_set)
+      document.getElementById('cfgGmailPassword').placeholder = '✅ Password saved';
+  } catch(e) {}
+}
+
+async function runLinkedInScrape() {
+  const btn = document.getElementById('liScrapeBtn');
+  const logWrap = document.getElementById('agentLogWrap');
+  const logEl   = document.getElementById('agentLog');
+  btn.disabled  = true;
+  btn.textContent = '⏳ Scraping LinkedIn...';
+  logWrap.style.display = 'block';
+  logEl.textContent = '▶ Logging into LinkedIn and scraping saved jobs...\n';
+
+  const log = (msg) => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+
+  try {
+    const data = await fetch('/api/linkedin/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'jobhunt2025' })
+    }).then(r => r.json());
+
+    if (data.error) {
+      log('❌ ' + data.error);
+      toast('LinkedIn scrape error', 'error');
+      btn.disabled = false; btn.textContent = '🔗 Scrape LinkedIn Now';
+      return;
+    }
+
+    log('✅ LinkedIn scrape started in background');
+    log('🔐 Logging in as configured user...');
+    log('📋 Scraping saved jobs from linkedin.com/my-items/saved-jobs/');
+    log('🤖 Will auto-run AI scoring once jobs are imported');
+    log('📧 Email will be sent to amretha.ammu@gmail.com when complete');
+    log('⏳ This takes 3–10 minutes depending on how many saved jobs you have...');
+    toast('🔗 LinkedIn scrape running — check email when done', 'success');
+
+    // Poll for new jobs appearing
+    let pollCount = 0;
+    const poll = setInterval(async () => {
+      pollCount++;
+      const s = await fetch('/api/agent/status').then(r => r.json()).catch(() => ({}));
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val ?? '—'; };
+      set('agStat_total', s.total); set('agStat_jd', s.with_jd);
+      set('agStat_scored', s.scored); set('agStat_docs', s.with_docs);
+      if (pollCount % 3 === 0) log(`  📊 Tracker: ${s.total || 0} total jobs, ${s.scored || 0} scored`);
+      const res = await loadJobsFromSupabase();
+      if (res && res.count > 0) { renderKanban(); updateStats(); }
+    }, 15000);
+
+    setTimeout(() => {
+      clearInterval(poll);
+      log('⏱ Done polling — check amretha.ammu@gmail.com for results');
+      btn.disabled = false; btn.textContent = '🔗 Scrape LinkedIn Now';
+    }, 600000); // 10 min timeout
+  } catch(e) {
+    log('❌ Error: ' + e.message);
+    toast('Scrape error', 'error');
+    btn.disabled = false; btn.textContent = '🔗 Scrape LinkedIn Now';
+  }
+}
+
 async function openAgentPanel() {
   document.getElementById('agentModal').style.display = 'flex';
   const cronEl = document.getElementById('cronUrlDisplay');
   if (cronEl) cronEl.textContent = `${window.location.origin}/api/agent/cron?secret=jobhunt2025`;
   await refreshAgentStatus();
+  loadAgentConfig();
 }
 
 async function refreshAgentStatus() {
@@ -3089,7 +3446,7 @@ async function runAgent(forceAll = false) {
     }
 
     log(`✅ Processing ${data.count} jobs in background`);
-    log('📬 Telegram + Email notification when complete');
+    log('📬 Email notification will be sent to amretha.ammu@gmail.com when complete');
     log('⏳ Polling for progress…');
     toast(`🤖 Agent running — ${data.count} jobs`, 'success');
 
@@ -3109,7 +3466,7 @@ async function runAgent(forceAll = false) {
 
     setTimeout(() => {
       clearInterval(poll);
-      log('⏱ Done polling — check Telegram/Email for full results');
+      log('⏱ Done polling — check amretha.ammu@gmail.com for full results');
       btn.disabled = false; btn.textContent = '🤖 Run Agent Now';
     }, 300000);
     return;
@@ -3126,7 +3483,7 @@ async function testNotifications() {
   el.textContent = 'Sending…';
   try {
     const d = await fetch('/api/test-notifications', { method: 'POST' }).then(r => r.json());
-    el.textContent = `Telegram: ${d.telegram} · Email: ${d.email}`;
+    el.textContent = `Email: ${d.email}`;
   } catch(e) { el.textContent = 'Error — check Render logs'; }
 }
 
@@ -3141,6 +3498,13 @@ async function triggerAgentAfterImport(newJobs) {
   } catch(e) {}
 }
 
+// Initialise bookmarklet after DOM is ready
+(function initBookmarklet() {
+  // Run immediately (script is at bottom of body, DOM is ready)
+  copyBookmarklet();
+  // Also run once more after a short delay to handle any late-rendering
+  setTimeout(copyBookmarklet, 800);
+})();
 console.log("🚀 Amretha's Job Hunt Command Centre loaded!");
 </script>
 </body>
