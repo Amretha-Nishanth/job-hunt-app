@@ -6,16 +6,28 @@ const {
 const fs = require('fs');
 
 const args = JSON.parse(process.argv[2]);
-const { role, company, jd, roleType, outputDir, isAI } = args;
+const { role, company, jd, roleType, outputDir, isAI, profile: inputProfile } = args;
 
 // ─── PROFILE DATA ────────────────────────────────────────────
-const CONTACT = {
+// If a custom profile was passed from the backend, use it. Otherwise use hardcoded default.
+const DEFAULT_CONTACT = {
   name: 'AMRETHA KARTHIKEYAN',
   address: '#02-321 153 Gangsa Road, Singapore-670153',
   mobile: '+65-90256503',
   email: 'amretha.ammu@gmail.com',
   linkedin: 'https://www.linkedin.com/in/amretha-nishanth-534b39101/'
 };
+
+const CONTACT = inputProfile ? {
+  name: (inputProfile.name || 'CANDIDATE').toUpperCase(),
+  address: inputProfile.address || '',
+  mobile: inputProfile.mobile || '',
+  email: inputProfile.email || '',
+  linkedin: inputProfile.linkedin || ''
+} : DEFAULT_CONTACT;
+
+// Flag: is this a custom (non-default) profile?
+const IS_CUSTOM_PROFILE = !!inputProfile;
 
 // Determine which CV variant to use
 function getCVVariant(roleType) {
@@ -101,18 +113,81 @@ const cv = CV_DATA[variant];
 // AI project bullet (added when role is AI-related)
 const AI_BULLET = 'Built 3 production web applications leveraging advanced AI prompting with Claude Opus 4.6 and Sonnet 4.6 (Anthropic) and GitHub Copilot, demonstrating hands-on AI product development from requirements through to deployment';
 
-// Extract JD keywords to sprinkle into summary (simple keyword matching)
+// ─── ATS KEYWORD ENGINE ──────────────────────────────────────
+// Comprehensive keyword bank covering common ATS-tracked terms
+const KEYWORD_BANK = [
+  // Agile & Delivery
+  'agile','scrum','kanban','safe','product roadmap','stakeholder','user story','sprint',
+  'backlog','epics','features','pi planning','retrospective','velocity','burndown',
+  // Analytics & Data
+  'data-driven','analytics','api','kpi','okr','sql','python','tableau','power bi',
+  'data visualization','dashboard','reporting','metrics','a/b testing','data migration',
+  // Product Management
+  'product strategy','product vision','discovery','ideation','go-to-market','mvp',
+  'product-led','growth','roadmap','user research','competitive analysis','prioritization',
+  'requirements gathering','user acceptance testing','uat','release management',
+  // Tech & Platform
+  'saas','b2b','b2c','fintech','digital transformation','platform','mobile','web',
+  'cloud','aws','azure','gcp','microservices','ci/cd','devops',
+  // AI & ML
+  'ai','artificial intelligence','machine learning','llm','generative ai','nlp',
+  'deep learning','prompt engineering','chatbot','automation',
+  // Domain
+  'payments','lending','banking','insurance','govtech','ecommerce','trading',
+  'risk management','compliance','regulatory',
+  // Tools
+  'jira','confluence','figma','miro','notion','trello','asana','slack',
+  // Soft skills ATS often scans for
+  'cross-functional','collaboration','leadership','communication','problem-solving',
+  'vendor management','stakeholder management','change management','budget',
+  'ux','ui','design thinking'
+];
+
+// Extract keywords from JD that match the bank AND also extract custom n-grams
 function getJDKeywords(jd) {
   if (!jd) return [];
-  const keywords = [
-    'agile','scrum','kanban','product roadmap','stakeholder','user story','sprint','backlog',
-    'data-driven','analytics','api','ux','fintech','digital transformation','go-to-market',
-    'saas','b2b','b2c','kpi','okr','sql','python','tableau','power bi','jira','confluence',
-    'ai','machine learning','llm','generative ai','product-led','growth','payments','lending',
-    'banking','insurance','govtech','ecommerce','platform','mobile','web','cloud','aws','azure'
-  ];
   const jdLower = jd.toLowerCase();
-  return keywords.filter(k => jdLower.includes(k)).slice(0, 8);
+
+  // Phase 1: match from curated bank
+  const bankMatches = KEYWORD_BANK.filter(k => jdLower.includes(k));
+
+  // Phase 2: extract additional multi-word phrases from JD (2-3 word combos) that appear repeatedly
+  const words = jdLower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 3);
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  const repeatedWords = Object.entries(freq)
+    .filter(([w, c]) => c >= 2 && !['with','that','this','from','have','been','will','they','their','your','about','which','when','into','also','more','than','only','other','some'].includes(w))
+    .map(([w]) => w);
+
+  // Merge, deduplicate, return top 12 for ATS enrichment
+  const all = [...new Set([...bankMatches, ...repeatedWords])];
+  return all.slice(0, 12);
+}
+
+// Build an ATS-enriched summary by weaving matched keywords naturally
+function enrichSummary(baseSummary, jdKw) {
+  if (!jdKw.length) return baseSummary;
+  // Find keywords not already present in summary
+  const summaryLower = baseSummary.toLowerCase();
+  const missing = jdKw.filter(k => !summaryLower.includes(k));
+  if (!missing.length) return baseSummary;
+
+  // Append a concise keyword-rich sentence
+  const topMissing = missing.slice(0, 6).join(', ');
+  return baseSummary.replace(/\.$/, '') +
+    `. Additional expertise in ${topMissing}, with a strong track record of delivering measurable business outcomes.`;
+}
+
+// Build an ATS-enriched skills line merging base skills + JD keywords
+function enrichSkills(baseSkills, jdKw) {
+  if (!jdKw.length) return baseSkills;
+  const skillsLower = baseSkills.toLowerCase();
+  const newSkills = jdKw
+    .filter(k => !skillsLower.includes(k) && k.length > 2)
+    .map(k => k.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
+    .slice(0, 5);
+  if (!newSkills.length) return baseSkills;
+  return baseSkills + ', ' + newSkills.join(', ');
 }
 
 // ─── STYLING HELPERS ─────────────────────────────────────────
@@ -160,13 +235,168 @@ function twoColPara(left, right) {
   });
 }
 
-// ─── BUILD RESUME ─────────────────────────────────────────────
+// ─── CUSTOM PROFILE RESUME BUILDER ────────────────────────────
+// Builds a professional resume from any uploaded profile (inputProfile)
+function buildCustomResume() {
+  const jdKw = getJDKeywords(jd);
+  const p = inputProfile;
+  const enrichedSummary = enrichSummary(p.summary || '', jdKw);
+  const skillsList = Array.isArray(p.skills) ? p.skills.join(', ') : (p.skills || '');
+  const enrichedSkillsStr = enrichSkills(skillsList, jdKw);
+
+  const children = [
+    // Header
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 }, children: [nameRun(CONTACT.name)] }),
+  ];
+
+  // Contact line
+  const contactParts = [CONTACT.mobile, CONTACT.email].filter(Boolean).join(' | ');
+  if (contactParts) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 },
+      children: [new TextRun({ text: contactParts, font: FONT, size: BODY_SIZE, bold: true })] }));
+  }
+  if (CONTACT.address) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 },
+      children: [new TextRun({ text: CONTACT.address, font: FONT, size: BODY_SIZE })] }));
+  }
+  if (CONTACT.linkedin) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 },
+      children: [new TextRun({ text: CONTACT.linkedin, font: FONT, size: BODY_SIZE, bold: true, color: '0000FF' })] }));
+  }
+
+  // Headline
+  if (p.headline) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 80 },
+      children: [new TextRun({ text: p.headline, font: FONT, size: BODY_SIZE, bold: true })] }));
+  }
+
+  // Summary
+  if (enrichedSummary) {
+    children.push(sectionHeader('PROFESSIONAL SUMMARY:'));
+    children.push(normalPara(enrichedSummary, BODY_SIZE, { before: 60, after: 60 }));
+  }
+
+  // Skills
+  if (enrichedSkillsStr) {
+    children.push(sectionHeader('CORE SKILLS:'));
+    children.push(normalPara(enrichedSkillsStr, BODY_SIZE, { before: 40, after: 40 }));
+  }
+
+  // Certification
+  if (p.certification) {
+    children.push(new Paragraph({ spacing: { before: 40, after: 40 }, children: [
+      new TextRun({ text: 'Certification: ', font: FONT, size: BODY_SIZE, bold: true }),
+      new TextRun({ text: p.certification, font: FONT, size: BODY_SIZE }),
+    ]}));
+  }
+
+  // Experience
+  if (p.experience && p.experience.length) {
+    children.push(sectionHeader('PROFESSIONAL EXPERIENCE:'));
+    for (const exp of p.experience) {
+      children.push(twoColPara(exp.company || '', exp.period || ''));
+      children.push(boldPara(exp.role || ''));
+      if (exp.bullets && exp.bullets.length) {
+        for (const b of exp.bullets) children.push(bulletPara(b));
+      }
+      if (exp.achievements && exp.achievements.length) {
+        children.push(normalPara('Key Achievements:', BODY_SIZE, { before: 40, after: 20 }));
+        for (const a of exp.achievements) children.push(bulletPara(a));
+      }
+      children.push(new Paragraph({ spacing: { before: 40, after: 0 }, children: [] }));
+    }
+  }
+
+  // Projects
+  if (p.projects && p.projects.length) {
+    children.push(sectionHeader('PROJECTS:'));
+    for (const proj of p.projects) {
+      children.push(boldPara(`${proj.title || ''}${proj.period ? ' (' + proj.period + ')' : ''}`));
+      if (proj.tech) children.push(normalPara(`Technologies: ${proj.tech}`));
+      if (proj.url) children.push(normalPara(proj.url));
+      if (proj.bullets) {
+        for (const b of proj.bullets) children.push(bulletPara(b));
+      }
+    }
+  }
+
+  // Education
+  if (p.education && p.education.length) {
+    children.push(sectionHeader('EDUCATION:'));
+    for (const ed of p.education) {
+      children.push(twoColPara(ed.degree || '', ed.period || ''));
+      children.push(normalPara(ed.school || ''));
+    }
+  }
+
+  return new Document({
+    numbering: { config: [{ reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 360, hanging: 260 } } } }] }] },
+    styles: { default: { document: { run: { font: FONT, size: BODY_SIZE } } } },
+    sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 720, right: 900, bottom: 720, left: 900 } } }, children }]
+  });
+}
+
+// ─── CUSTOM PROFILE COVER LETTER BUILDER ──────────────────────
+function buildCustomCoverLetter() {
+  const p = inputProfile;
+  const jdKw = getJDKeywords(jd);
+  const today = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Build dynamic highlights from profile
+  const currentExp = (p.experience || [])[0] || {};
+  const achievements = (currentExp.achievements || currentExp.bullets || []).slice(0, 2).join('; ');
+  const skillsSnippet = (Array.isArray(p.skills) ? p.skills.slice(0, 5).join(', ') : (p.skills || '').split(',').slice(0, 5).join(', '));
+  const jdAlignment = jdKw.length >= 3 ? ` My experience aligns with your needs in ${jdKw.slice(0, 4).join(', ')}.` : '';
+
+  const body1 = `I am writing to express my strong interest in the ${role} role at ${company}. With experience in ${skillsSnippet}, I am confident in my ability to contribute meaningfully from day one.${jdAlignment}`;
+  const body2 = achievements ? `In my role at ${currentExp.company || 'my current company'}, key highlights include: ${achievements}.` : `I bring a strong track record of delivering results in cross-functional environments.`;
+  const body3 = `I am particularly drawn to ${company} because it represents the kind of environment where I can own outcomes end-to-end. ${p.certification ? 'My ' + p.certification + ' certification, combined with ' : 'My '}hands-on experience positions me well for this role.`;
+  const body4 = `I would welcome the opportunity to discuss how my background aligns with your team's goals. Thank you for your consideration.`;
+
+  const children = [
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 40 }, children: [new TextRun({ text: CONTACT.name, font: FONT, size: NAME_SIZE, bold: true })] }),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 20 }, children: [new TextRun({ text: `${CONTACT.mobile} | ${CONTACT.email}`, font: FONT, size: BODY_SIZE, bold: true })] }),
+  ];
+  if (CONTACT.linkedin) {
+    children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 60 }, children: [new TextRun({ text: CONTACT.linkedin, font: FONT, size: BODY_SIZE, color: '0000FF' })] }));
+  }
+  children.push(
+    normalPara(today, BODY_SIZE, { before: 0, after: 80 }),
+    normalPara('Hiring Manager', BODY_SIZE, { before: 0, after: 20 }),
+    boldPara(company),
+    new Paragraph({ spacing: { before: 60, after: 60 }, children: [] }),
+    new Paragraph({ spacing: { before: 0, after: 80 }, children: [
+      new TextRun({ text: 'Re: ', font: FONT, size: BODY_SIZE, bold: true }),
+      new TextRun({ text: `Application for ${role}`, font: FONT, size: BODY_SIZE }),
+    ]}),
+    normalPara('Dear Hiring Manager,', BODY_SIZE, { before: 0, after: 80 }),
+    normalPara(body1, BODY_SIZE, { before: 0, after: 160 }),
+    normalPara(body2, BODY_SIZE, { before: 0, after: 160 }),
+    normalPara(body3, BODY_SIZE, { before: 0, after: 160 }),
+    normalPara(body4, BODY_SIZE, { before: 0, after: 160 }),
+    normalPara('Yours sincerely,', BODY_SIZE, { before: 80, after: 120 }),
+    boldPara(CONTACT.name),
+  );
+
+  return new Document({
+    styles: { default: { document: { run: { font: FONT, size: BODY_SIZE } } } },
+    sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } } }, children }]
+  });
+}
+
+// ─── BUILD RESUME (DEFAULT — Amretha's hardcoded) ─────────────
 function buildResume() {
+  // For custom profiles, use the generic builder
+  if (IS_CUSTOM_PROFILE) return buildCustomResume();
+
   const jdKw = getJDKeywords(jd);
   const isAIRole = isAI || (jd && /(ai|machine learning|llm|generative|artificial intelligence)/i.test(jd));
   
-  // Enhance summary with JD keywords if relevant
-  let summary = cv.summary;
+  // ATS: Enrich summary with JD keywords that are missing from base summary
+  const summary = enrichSummary(cv.summary, jdKw);
+
+  // ATS: Enrich skills with JD keywords not already listed
+  const enrichedSkills = enrichSkills(cv.skills, jdKw);
 
   const bullets = [...cv.kpmgBullets];
   if (isAIRole) bullets.push(AI_BULLET);
@@ -235,7 +465,7 @@ function buildResume() {
       spacing: { before: 40, after: 20 },
       children: [
         new TextRun({ text: 'Others: ', font: FONT, size: BODY_SIZE, bold: true }),
-        new TextRun({ text: cv.skills, font: FONT, size: BODY_SIZE }),
+        new TextRun({ text: enrichedSkills, font: FONT, size: BODY_SIZE }),
       ]
     }),
     new Paragraph({
@@ -313,8 +543,12 @@ function buildResume() {
 
 // ─── BUILD COVER LETTER ───────────────────────────────────────
 function buildCoverLetter() {
+  // For custom profiles, use the generic builder
+  if (IS_CUSTOM_PROFILE) return buildCustomCoverLetter();
+
   const isAIRole = isAI || (jd && /(ai|machine learning|llm|generative|artificial intelligence)/i.test(jd));
   const today = new Date().toLocaleDateString('en-SG', { day: 'numeric', month: 'long', year: 'numeric' });
+  const jdKw = getJDKeywords(jd);
 
   // Determine key skills emphasis by variant
   const variantHighlight = {
@@ -323,11 +557,16 @@ function buildCoverLetter() {
     BA: 'business analysis, process optimisation and cross-functional stakeholder management'
   }[variant];
 
+  // Build a JD-specific alignment sentence for the cover letter
+  const jdAlignment = jdKw.length >= 3
+    ? ` My experience directly aligns with your requirements in ${jdKw.slice(0, 4).join(', ')}, which are central to this role.`
+    : '';
+
   const aiLine = isAIRole
     ? ` I have also independently built three production web applications using advanced AI prompting with Claude Opus 4.6 and Sonnet 4.6 and GitHub Copilot, which speaks directly to my hands-on experience with AI product development.`
     : '';
 
-  const body1 = `I am writing to express my strong interest in the ${role} role at ${company}. With over 5 years of experience in ${variantHighlight} within fintech and enterprise environments, I am confident in my ability to contribute meaningfully from day one.`;
+  const body1 = `I am writing to express my strong interest in the ${role} role at ${company}. With over 5 years of experience in ${variantHighlight} within fintech and enterprise environments, I am confident in my ability to contribute meaningfully from day one.${jdAlignment}`;
 
   const body2 = `In my current role at KPMG Singapore, I have served as Lead Business Analyst and de-facto Product Owner for Loan IQ — a core banking platform — leading cross-functional squads across engineering, UX and QA. Key highlights include: delivering a 5% increase in project profitability through rigorous impact analysis and stakeholder management; saving 30 man-days through automation of interest computation workflows; and maintaining delivery timelines through critical Sprint-to-SIT transitions.${aiLine}`;
 
