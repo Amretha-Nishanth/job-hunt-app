@@ -590,8 +590,6 @@ function fallbackCopy(text, cb) {
 
 function copyBookmarklet() {
  var appUrl = window.location.origin;
- // Build as array to avoid any string escaping issues
- // IMPORTANT: No regex literals (/ / causes issues), use new RegExp() instead
  var p = [];
  p.push('(async function(){');
  p.push('if(window.__jtRunning){alert("Already running");return;}');
@@ -631,34 +629,63 @@ function copyBookmarklet() {
  p.push('var cancelled=false;cb.onclick=function(){cancelled=true;ov.remove();window.__jtRunning=false;};');
  p.push('function sleep(ms){return new Promise(function(r){setTimeout(r,ms);})}');
 
- // Scraper - using indexOf instead of regex
+ // Helper: clean text, reject JSON blobs and noise
+ p.push('function cleanText(s){');
+ p.push('if(!s)return "";');
+ p.push('s=s.trim();');
+ p.push('if(s.length<2||s.length>200)return "";');
+ p.push('if(s.charAt(0)==="{")return "";');  // JSON blob
+ p.push('if(s.indexOf("\\"textDirection\\"")>-1)return "";');  // LinkedIn JSON
+ p.push('if(s.indexOf("\\"$type\\"")>-1)return "";');
+ p.push('if(s.indexOf("com.linkedin")>-1)return "";');
+ p.push('return s;');
+ p.push('}');
+
+ p.push('var skipStart=["Remote","Hybrid","On-site","Singapore","Apply","Save","Easy","Promoted","Active","ago","week","day","hour","month","Full-time","Part-time","Contract","Internship"];');
+ p.push('function isNoise(s){if(!s)return true;for(var k=0;k<skipStart.length;k++){if(s.indexOf(skipStart[k])===0)return true;}if(s.charAt(0)>="0"&&s.charAt(0)<="9")return true;return false;}');
+
+ // Scraper
  p.push('var seen={};var jobs=[];');
- p.push('var skipWords=["Remote","Hybrid","On-site","Singapore","Apply","Save","Easy","Promoted","Active","ago","week","day","hour","month"];');
- p.push('function isSkip(s){if(!s)return true;if(s.length>120)return true;for(var k=0;k<skipWords.length;k++){if(s.indexOf(skipWords[k])===0)return true;}if(s.charAt(0)>="0"&&s.charAt(0)<="9")return true;return false;}');
  p.push('function getJobs(){');
  p.push('var links=document.querySelectorAll("a");');
  p.push('for(var li=0;li<links.length;li++){');
  p.push('var a=links[li];');
  p.push('var href=(a.href||"");');
  p.push('var qi=href.indexOf("?");if(qi>-1)href=href.substring(0,qi);');
- p.push('var hi2=href.indexOf("#");if(hi2>-1)href=href.substring(0,hi2);');
+ p.push('var hashi=href.indexOf("#");if(hashi>-1)href=href.substring(0,hashi);');
  p.push('if(href.indexOf("/jobs/view/")<0)continue;');
  p.push('if(seen[href])continue;');
  p.push('seen[href]=true;');
+
+ // Walk up to find card
  p.push('var card=a;');
- p.push('for(var up=0;up<10;up++){if(!card.parentElement)break;card=card.parentElement;var ch=card.offsetHeight;if(ch>60&&ch<600)break;}');
- p.push('var t=(a.innerText||a.textContent||"").trim();');
- p.push('if(t.length<3||t.length>200){');
- p.push('var hs=card.querySelectorAll("strong,h3,h4,[class*=title]");');
- p.push('for(var hi=0;hi<hs.length;hi++){var tx=(hs[hi].innerText||"").trim();if(tx.length>2&&tx.length<200){t=tx;break;}}');
+ p.push('for(var up=0;up<10;up++){if(!card.parentElement)break;card=card.parentElement;var ch=card.offsetHeight;if(ch>80&&ch<700)break;}');
+
+ // Get title from aria-label first (most reliable on LinkedIn), then visible text
+ p.push('var t=cleanText(a.getAttribute("aria-label")||"");');
+ p.push('if(!t)t=cleanText(a.innerText||a.textContent||"");');
+ // Try titled child elements if still no good title
+ p.push('if(!t){');
+ p.push('var titEls=card.querySelectorAll("[class*=job-card-list__title],[class*=job-card__title],strong,h3");');
+ p.push('for(var ti=0;ti<titEls.length;ti++){var tx=cleanText(titEls[ti].innerText||"");if(tx){t=tx;break;}}');
  p.push('}');
+
+ // Get company
  p.push('var c="Unknown";');
- p.push('var allLines=(card.innerText||"").split("\\n");');
- p.push('for(var ti=0;ti<allLines.length;ti++){var ln=allLines[ti].trim();if(ln&&ln!==t&&!isSkip(ln)){c=ln;break;}}');
+ p.push('var coEls=card.querySelectorAll("[class*=job-card-container__primary-description],[class*=job-card-list__company-name],[class*=subtitle]");');
+ p.push('for(var ci=0;ci<coEls.length;ci++){var cx=cleanText(coEls[ci].innerText||"");if(cx&&cx!==t&&!isNoise(cx)){c=cx;break;}}');
+ // Fallback: scan text lines
+ p.push('if(c==="Unknown"){');
+ p.push('var lines=(card.innerText||"").split("\\n");');
+ p.push('for(var lx=0;lx<lines.length;lx++){var ln=cleanText(lines[lx]);if(ln&&ln!==t&&!isNoise(ln)){c=ln;break;}}');
+ p.push('}');
+
+ // Extract job ID
  p.push('var jidx=href.indexOf("/jobs/view/")+11;');
  p.push('var jend=href.indexOf("/",jidx);');
  p.push('var jid=jend>-1?href.substring(jidx,jend):href.substring(jidx);');
- p.push('if(t.length>1)jobs.push({role:t,company:c,url:href,linkedInId:jid?"li_"+jid:"",source:"LinkedIn",status:"saved",jd:""});');
+
+ p.push('if(t)jobs.push({role:t,company:c,url:href,linkedInId:jid?"li_"+jid:"",source:"LinkedIn",status:"saved",jd:""});');
  p.push('}');
  p.push('}');
 
