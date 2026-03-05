@@ -648,13 +648,13 @@ function copyBookmarklet() {
  p.push('var t="";');
  p.push('var allEls=card.querySelectorAll("[class]");');
  p.push('for(var ei=0;ei<allEls.length;ei++){');
- p.push('var cls=allEls[ei].className||"";');
+ p.push('var cls=typeof allEls[ei].className=="string"?allEls[ei].className:"";');
  p.push('if(cls.indexOf("t-16")>-1){var tx=(allEls[ei].innerText||"").trim();if(tx.length>1&&tx.length<200){t=tx;break;}}');
  p.push('}');
  // Company: element with class containing t-14 t-black
  p.push('var c="Unknown";');
  p.push('for(var ei2=0;ei2<allEls.length;ei2++){');
- p.push('var cls2=allEls[ei2].className||"";');
+ p.push('var cls2=typeof allEls[ei2].className=="string"?allEls[ei2].className:"";');
  p.push('if(cls2.indexOf("t-14")>-1&&cls2.indexOf("t-black")>-1){var cx=(allEls[ei2].innerText||"").trim();if(cx.length>1&&cx.length<150&&cx!==t){c=cx;break;}}');
  p.push('}');
  // Job ID
@@ -664,7 +664,7 @@ function copyBookmarklet() {
  // Date posted: element with t-12 containing "ago" or "Posted"
  p.push('var datePosted="";');
  p.push('for(var ei3=0;ei3<allEls.length;ei3++){');
- p.push('var cls3=allEls[ei3].className||"";');
+ p.push('var cls3=typeof allEls[ei3].className=="string"?allEls[ei3].className:"";');
  p.push('if(cls3.indexOf("t-12")>-1){var dx=(allEls[ei3].innerText||"").trim();if(dx.indexOf("ago")>-1||dx.indexOf("Posted")>-1){datePosted=dx.replace("Posted","").trim();break;}}');
  p.push('}');
  p.push('if(t)jobs.push({role:t,company:c,url:href,linkedInId:jid?"li_"+jid:"",source:"LinkedIn",status:"saved",jd:"",datePosted:datePosted});');
