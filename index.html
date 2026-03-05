@@ -68,7 +68,6 @@ body {
  color: var(--text-primary);
  min-height: 100vh;
  font-size: 14px;
- overflow-x: hidden;
 }
 /* Ambient glow background */
 body::before {
@@ -365,7 +364,7 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .stage-group-toggle { margin-left: auto; font-size: 13px; transition: transform 0.2s; }
 .stage-group.collapsed .stage-group-toggle { transform: rotate(-90deg); }
 .stage-group.collapsed .stage-rows { display: none; }
-.stage-rows { border: 1.5px solid var(--border-primary); border-radius: var(--radius-sm); overflow-x: auto; overflow-y: hidden; }
+.stage-rows { border: 1.5px solid var(--border-primary); border-radius: var(--radius-sm); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .job-row {
  display: grid;
  grid-template-columns: 1.8fr 1.8fr 48px 85px 80px 80px 80px auto;
@@ -678,8 +677,10 @@ function copyBookmarklet() {
  p.push('page++;');
  p.push('mg.textContent="Loading page "+page+"...";');
  p.push('br.style.width=Math.min(88,10+(page*10))+"%";');
+ p.push('var prevFirst=(document.querySelectorAll("a").length>0?document.querySelector("a[href*=\"/jobs/view/\"]"):null);var prevHref=prevFirst?prevFirst.href:"";');
  p.push('nextBtn.click();');
- p.push('await sleep(2000);');
+ p.push('for(var w=0;w<30;w++){await sleep(500);var newFirst=document.querySelector("a[href*=\"/jobs/view/\"]");if(newFirst&&newFirst.href!==prevHref)break;}');
+ p.push('await sleep(800);');
  p.push('scrapeCurrentPage();');
  p.push('ct.textContent=jobs.length+" jobs found";');
  p.push('}');
@@ -2444,20 +2445,24 @@ function initSampleJobs() {
 async function confirmClearAll() {
  const real = getJobs().filter(j => !j.isDemo);
  const msg = real.length > 0
- ? ` This will permanently delete ALL ${real.length} jobs from BOTH your browser AND the cloud database.\n\nThis cannot be undone. Are you sure?`
+ ? `This will permanently delete ALL ${real.length} jobs from your tracker AND Supabase database.\n\nThis cannot be undone. Are you sure?`
  : `Clear local storage and reset? (No cloud jobs found)`;
  if (!confirm(msg)) return;
- if (real.length > 0 && !confirm('Last chance delete everything and start fresh?')) return;
- // Clear cloud
+ if (real.length > 0 && !confirm('Last chance — delete everything and start fresh?')) return;
+ toast('Deleting from database...', 'info');
+ // Hard delete from Supabase first
  try {
- await fetch('/api/jobs/clear-all', { method: 'POST' });
- } catch(e) {}
- // Clear local
+   const res = await fetch('/api/jobs/clear-all', { method: 'POST' });
+   const d = await res.json();
+   if (d.error) { toast('DB delete failed: ' + d.error, 'error'); return; }
+ } catch(e) { toast('DB delete failed: ' + e.message, 'error'); return; }
+ // Clear local state only after confirmed DB delete
  localStorage.removeItem('jobs');
  localStorage.removeItem('jobs_initialized');
+ allJobs = [];
  renderKanban(); updateStats(); renderAnalytics();
  updateDbStatusLine({ source: 'empty' });
- toast(' All jobs cleared ready for a fresh import!', 'success');
+ toast('All jobs deleted from tracker and database. Ready for fresh import!', 'success');
 }
 // ========== LIST VIEW (replaces Kanban) ==========
 // Stage background colours (light tints)
