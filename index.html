@@ -368,8 +368,8 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .stage-rows { border: 1.5px solid var(--border-primary); border-radius: var(--radius-sm); overflow-x: auto; overflow-y: hidden; }
 .job-row {
  display: grid;
- grid-template-columns: 1.8fr 1.8fr 48px 85px 80px 80px auto;
- min-width: 700px;
+ grid-template-columns: 1.8fr 1.8fr 48px 85px 80px 80px 80px auto;
+ min-width: 900px;
  align-items: center;
  gap: 10px;
  padding: 10px 14px;
@@ -393,8 +393,8 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
 .job-row-actions { display: flex; gap: 4px; align-items: center; }
 .job-list-header {
  display: grid;
- grid-template-columns: 1.8fr 1.8fr 48px 85px 80px 80px auto;
- min-width: 700px;
+ grid-template-columns: 1.8fr 1.8fr 48px 85px 80px 80px 80px auto;
+ min-width: 900px;
  gap: 10px;
  padding: 8px 14px;
  background: var(--bg-secondary);
@@ -531,7 +531,7 @@ select.form-control { appearance: none; background-image: url("data:image/svg+xm
  .tracker-layout { grid-template-columns: 1fr; }
  .tab-content { padding: 16px; }
  .app-header { padding: 0 16px; }
- .job-row, .job-list-header { grid-template-columns: 1.5fr 1.5fr 40px 70px auto; }
+ .job-row, .job-list-header { grid-template-columns: 1.5fr 1.5fr 40px 70px 60px 60px 60px auto; }
  .job-list-header > div:nth-child(5), .job-list-header > div:nth-child(6),
  .job-row > div:nth-child(5), .job-row > div:nth-child(6) { display: none; }
 }
@@ -1043,6 +1043,9 @@ function copyBookmarklet() {
  <div class="form-group">
  <label>Max Age</label>
  <select class="form-control" id="discoverMaxDays">
+ <option value="1">Last 1 day</option>
+ <option value="2">Last 2 days</option>
+ <option value="4">Last 4 days</option>
  <option value="7">Last 7 days</option>
  <option value="14">Last 14 days</option>
  <option value="30" selected>Last 30 days</option>
@@ -2522,6 +2525,7 @@ function renderKanban() {
  <div>AI Rank</div>
  <div>Apply Kit</div>
  <div>Salary</div>
+ <div>Posted</div>
  <div>Actions</div>
  </div>
  ${colJobs.map(j => renderRow(j)).join("")}
@@ -2588,6 +2592,7 @@ function renderRow(j) {
  <div>${scoreText}</div>
  <div style="text-align:center;">${kitBtn}</div>
  <div style="font-size:12px;color:var(--blue);">${j.salary ? 'S$'+j.salary : '<span style="color:var(--gray-300);"></span>'}</div>
+ <div style="font-size:11px;color:var(--text-muted);">${j.datePosted||''}</div>
  <div class="job-row-actions">
  ${j.url ? `<a href="${j.url}" target="_blank" class="btn btn-xs btn-primary" style="text-decoration:none;">&#128279;</a>` : ''}
  <button class="btn btn-xs btn-secondary" onclick="openJobDetail('${j.id}')" title="View details">&#128196;</button>
