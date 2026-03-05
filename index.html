@@ -590,7 +590,7 @@ function fallbackCopy(text, cb) {
 
 function copyBookmarklet() {
  var appUrl = window.location.origin;
- var code = 'javascript:(async function(){' +
+ var code = 'javascript:(async function(){try{' +
  'if(window.__jtRunning){alert("Already running, please wait.");return;}' +
  'window.__jtRunning=true;' +
  'var u=location.href;' +
@@ -610,9 +610,9 @@ function copyBookmarklet() {
  'var cleanU=u.split("?")[0].split("#")[0];' +
  'var liM=cleanU.match(/\\/jobs\\/view\\/(\\d+)/);var liId=liM?"li_"+liM[1]:"";' +
  'var single=[{role:t,company:c||"Unknown",url:cleanU,linkedInId:liId,jd:jd,source:"LinkedIn",status:"saved",roleType:"Business Analyst",dateApplied:new Date().toISOString()}];' +
- 'try{await fetch("+window.location.origin+"/api/linkedin-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobs:single,secret:"jobhunt2025"})});}catch(e){}' +
+ 'try{await fetch("' + appUrl + '/api/linkedin-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobs:single,secret:"jobhunt2025"})});}catch(e){}' +
  'var enc=btoa(unescape(encodeURIComponent(JSON.stringify(single))));' +
- 'location.href=window.location.origin+"/#bm:"+enc;' +
+ 'location.href="' + appUrl + '/#bm:"+enc;' +
  'window.__jtRunning=false;return;' +
  '}' +
 
@@ -714,14 +714,14 @@ function copyBookmarklet() {
 
  // POST to server
  'bar.style.width="85%";msg.textContent="Saving "+allJobs.length+" jobs...";' +
- 'try{await fetch("+window.location.origin+"/api/linkedin-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobs:allJobs,secret:"jobhunt2025"})});}catch(pe){console.log("POST failed:",pe);}' +
+ 'try{await fetch("' + appUrl + '/api/linkedin-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobs:allJobs,secret:"jobhunt2025"})});}catch(pe){console.log("POST failed:",pe);}' +
  'await sleep(400);' +
 
  // Redirect
  'bar.style.width="100%";msg.textContent="Done! Loading tracker...";' +
- 'try{var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));ov.remove();window.__jtRunning=false;location.href=window.location.origin+"/#bm:"+enc;}' +
+ 'try{var enc=btoa(unescape(encodeURIComponent(JSON.stringify(allJobs))));ov.remove();window.__jtRunning=false;location.href="' + appUrl + '/#bm:"+enc;}' +
  'catch(e){ov.remove();window.__jtRunning=false;alert("Error: "+e.message);}' +
- '})();';
+ '}catch(err){alert("Bookmarklet error: "+err.message);}})();';
  var box = document.getElementById('bookmarkletBox');
  if (box) { box.value = code; }
  var link = document.getElementById('bookmarkletLink');
