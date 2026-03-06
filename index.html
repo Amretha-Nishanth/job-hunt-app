@@ -2480,7 +2480,9 @@ function renderKanban() {
  const fCompany = (document.getElementById('filterCompany')?.value || '').toLowerCase().trim();
  const fStatus = document.getElementById('filterStatus')?.value || '';
  const jobs = allJobs.filter(j => {
- if (fRole && !(j.role || '').toLowerCase().includes(fRole) && !(j.roleType || '').toLowerCase().includes(fRole)) return false;
+ const jRole = typeof j.role === 'object' ? (j.role?.text || '') : (j.role || '');
+      const jRoleType = typeof j.roleType === 'object' ? (j.roleType?.text || '') : (j.roleType || '');
+      if (fRole && !jRole.toLowerCase().includes(fRole) && !jRoleType.toLowerCase().includes(fRole)) return false;
  if (fCompany && !(j.company || '').toLowerCase().includes(fCompany)) return false;
  if (fStatus && j.status !== fStatus && !(j.status === 'wishlist' && fStatus === 'saved')) return false;
  return true;

@@ -202,7 +202,7 @@ def call_claude(prompt, max_tokens=4096):
                 "temperature": 0.3,
                 "messages": [{"role": "user", "content": prompt}]
             },
-            timeout=90
+            timeout=120
         )
         print(f"[Groq] HTTP {res.status_code}, response length: {len(res.text)}")
         if res.status_code == 429:
@@ -1508,7 +1508,7 @@ Return ONLY a JSON array, no other text:
     import time as _time
     # Groq free tier: 30 req/min for llama-3.3-70b
     # Use batch of 15 jobs, 2s delay between batches = safe at any volume
-    BATCH_SIZE   = 15
+    BATCH_SIZE   = 8
     all_rankings = []
     batch_num    = 0
 
@@ -1533,7 +1533,7 @@ JOBS:
 {SCORING_RULES}"""
 
         print(f"[rank_jobs] Batch {batch_num}/{(len(jobs)+BATCH_SIZE-1)//BATCH_SIZE}: {len(batch)} jobs, prompt ~{len(prompt)} chars")
-        result = call_claude(prompt, max_tokens=2048)
+        result = call_claude(prompt, max_tokens=3000)
         print(f"[rank_jobs] Raw response: {result[:200]}")
 
         if not result or result.startswith("Error:") or result.startswith("API error:"):
@@ -1541,7 +1541,7 @@ JOBS:
                 # Hit rate limit mid-way — wait 65s and retry this batch once
                 print("[rank_jobs] Rate limit hit — waiting 65s then retrying...")
                 _time.sleep(65)
-                result = call_claude(prompt, max_tokens=2048)
+                result = call_claude(prompt, max_tokens=3000)
                 if not result or result.startswith("Error:"):
                     if all_rankings:
                         break  # return what we have
