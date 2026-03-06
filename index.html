@@ -677,9 +677,9 @@ function copyBookmarklet() {
  p.push('page++;');
  p.push('mg.textContent="Loading page "+page+"...";');
  p.push('br.style.width=Math.min(88,10+(page*10))+"%";');
- p.push('var prevFirst=(document.querySelectorAll("a").length>0?document.querySelector("a[href*=\"/jobs/view/\"]"):null);var prevHref=prevFirst?prevFirst.href:"";');
+ p.push('var prevFirst=document.querySelector("a");var allA=document.querySelectorAll("a");for(var pi=0;pi<allA.length;pi++){if(allA[pi].href&&allA[pi].href.indexOf("/jobs/view/")>-1){prevFirst=allA[pi];break;}}var prevHref=prevFirst?prevFirst.href:"";');
  p.push('nextBtn.click();');
- p.push('for(var w=0;w<30;w++){await sleep(500);var newFirst=document.querySelector("a[href*=\"/jobs/view/\"]");if(newFirst&&newFirst.href!==prevHref)break;}');
+ p.push('for(var w=0;w<30;w++){await sleep(500);var newFirst=null;var chkA=document.querySelectorAll("a");for(var ci=0;ci<chkA.length;ci++){if(chkA[ci].href&&chkA[ci].href.indexOf("/jobs/view/")>-1){newFirst=chkA[ci];break;}}if(newFirst&&newFirst.href!==prevHref)break;}');
  p.push('await sleep(800);');
  p.push('scrapeCurrentPage();');
  p.push('ct.textContent=jobs.length+" jobs found";');
