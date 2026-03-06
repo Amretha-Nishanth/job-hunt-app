@@ -562,35 +562,43 @@ PROJECTS:
 {proj_text}
 ===========================
 
-STRICT REQUIREMENTS — YOUR RESUME MUST CONTAIN AT LEAST 750 WORDS:
-1. HEADER: Name, phone, email, LinkedIn, address — on 2-3 lines
-2. PROFESSIONAL SUMMARY: Write exactly 5 sentences. Mirror JD keywords. Include years of experience, SAFe certification, domain expertise, and target positioning.
-3. ATS KEYWORD OPTIMIZATION — CRITICAL FOR APPLICANT TRACKING SYSTEMS:
-   - Read the JOB DESCRIPTION above very carefully
-   - Extract ALL important keywords, phrases, tools, technologies, certifications, methodologies, and domain terms from the JD
-   - You MUST weave these exact JD keywords naturally throughout the resume (summary, skills, bullets, projects)
-   - Include exact phrases from the JD — ATS systems do literal string matching
-   - If the JD says "stakeholder management", use that EXACT phrase (not just "worked with stakeholders")
-   - If the JD mentions specific tools (JIRA, Confluence, SQL, Tableau, Power BI, etc.), include them even if the candidate's data doesn't list them explicitly — map similar experience
-4. CORE SKILLS: List ALL {len(P.get('skills',[]))} candidate skills PLUS at least 8 additional keywords extracted directly from the JD. Comma-separated. Minimum 30 skills total. Include both hard skills and soft skills mentioned in the JD.
-5. PROFESSIONAL EXPERIENCE — this is the longest section:
-   - For EACH of the {num_exp} roles, write the company, title, and date range
-   - For the primary/most recent role: write exactly 8 bullet points (expand the existing {len(P.get('experience',[])[0].get('bullets',[])) if P.get('experience') else 0} bullets with more detail, add JD keywords)
-   - For each other role: write exactly 5 bullet points (expand existing bullets, add metrics and JD keywords)
-   - Every bullet MUST start with an action verb and include a measurable metric
-   - Every bullet MUST contain at least one keyword from the JD
-6. {"PROJECTS: Include the AI project with URL, tech stack, and 4 detailed bullets" if ai_role or P.get('projects') else ""}
-7. EDUCATION & CERTIFICATIONS: Include ALL {len(P.get('education',[]))} education entries AND the SAFe 6.0 certification
+STRICT REQUIREMENTS — 2-PAGE MAXIMUM, ATS-OPTIMISED:
 
-FORMAT: Plain text only. No markdown (no ** or # or ```). Use ALL CAPS for section headers. Use "- " for bullet points.
+STEP 1 — EXTRACT JD KEYWORDS FIRST:
+Before writing anything, extract from the JD:
+- Job titles/role names used
+- Required tools & technologies (JIRA, Confluence, SQL, Python, etc.)
+- Methodologies (Agile, SAFe, Scrum, Kanban, etc.)
+- Soft skills phrased exactly as in JD (e.g. "stakeholder management", "cross-functional collaboration")
+- Domain terms (fintech, payments, product backlog, roadmap, etc.)
+- Certifications mentioned
+You MUST use these exact phrases throughout the resume.
 
-ATS OPTIMIZATION CHECKLIST (verify before outputting):
-- Does the resume contain at least 15 keywords/phrases directly from the JD?
-- Are JD keywords used in the SUMMARY, SKILLS, and EXPERIENCE sections?
-- Do bullet points mirror the JD's language (not paraphrased)?
-- Are all tools/technologies mentioned in the JD present in the resume?
+SECTIONS (in this order):
+1. HEADER: Name, phone, email, LinkedIn — single line each. Max 4 lines.
+2. PROFESSIONAL SUMMARY: Exactly 4 sentences. Sentence 1: years of experience + role type. Sentence 2-3: mirror 3-4 exact JD keywords each. Sentence 4: SAFe certification + target positioning. Max 80 words.
+3. CORE SKILLS: Candidate skills + JD keywords combined. Comma-separated, 3 columns, max 24 skills. Include ALL tools/methodologies from JD.
+4. PROFESSIONAL EXPERIENCE:
+   - Primary role ({P.get('experience',[])[0].get('company','') if P.get('experience') else ''}): 5 bullets max
+   - Each other role: 3 bullets max
+   - Every bullet: action verb + exact JD keyword + metric
+   - Do NOT pad with generic statements
+5. {"PROJECTS: AI project with URL, 2 bullets max" if ai_role or P.get('projects') else ""}
+6. EDUCATION & CERTIFICATIONS: Degrees + SAFe 6.0 only. One line each.
 
-If your resume has fewer than 750 words, you have NOT included enough detail. Go back and expand every bullet point with specific tools, methods, and metrics."""
+PAGE LIMIT RULES:
+- Total output must fit on 2 pages when formatted (approx 600-750 words max)
+- Cut ruthlessly — quality over quantity
+- No filler phrases like "responsible for" or "assisted with"
+- Every line must earn its place by matching JD language
+
+FORMAT: Plain text only. No markdown (no ** or # or ```). Use ALL CAPS for section headers. Use "- " for bullets.
+
+ATS CHECK — before outputting verify:
+- At least 12 exact JD keywords/phrases used?
+- All tools from JD present in Skills section?
+- Every bullet contains a JD keyword + metric?
+- Total word count under 750?"""
 
     result = call_claude(prompt, max_tokens=8192)
     return jsonify({"result": result, "isAiRole": ai_role})
@@ -1294,13 +1302,14 @@ EXPERIENCE:
 {exp_text_d}
 EDUCATION: {edu_text_d}
 
-INSTRUCTIONS:
-- HEADER: name, phone, email, LinkedIn, address (2-3 lines)
-- PROFESSIONAL SUMMARY: 5 sentences, mirror JD keywords, mention SAFe certification
-- CORE SKILLS: All {len(P.get('skills',[]))} skills + 5 JD keywords = 25+ skills comma-separated
-- PROFESSIONAL EXPERIENCE: ALL {len(P.get('experience',[]))} roles. Primary role: 8 bullets. Others: 5 bullets each. Every bullet = action verb + tool/method + measurable metric
-- EDUCATION & CERTIFICATIONS: All degrees + SAFe 6.0
-Use ALL CAPS for section headers. Use "- " for bullets. No ** or # or ```. At least 750 words total."""
+INSTRUCTIONS (2-PAGE MAX, ATS-OPTIMISED):
+STEP 1: Extract exact keywords from the JD above — tools, methodologies, role terms, soft skills phrased exactly as written.
+- HEADER: name, phone, email, LinkedIn (4 lines max)
+- PROFESSIONAL SUMMARY: 4 sentences, max 80 words. Mirror 6+ exact JD keywords.
+- CORE SKILLS: Candidate skills + JD keywords, comma-separated, max 24 items, 3 columns
+- PROFESSIONAL EXPERIENCE: Primary role max 5 bullets, each other role max 3 bullets. Every bullet = action verb + JD keyword + metric. No filler.
+- EDUCATION & CERTIFICATIONS: Degrees + SAFe 6.0, one line each
+Use ALL CAPS section headers. "- " for bullets. No markdown. Target 600-750 words max (2 pages)."""
 
         resume_text = call_claude(resume_prompt, max_tokens=8192)
 
@@ -2630,11 +2639,14 @@ def bulk_apply():
                 _time2.sleep(2)
 
             # Generate resume via AI
-            resume_prompt = f"""Write an ATS-optimised resume for {P['name']} targeting: {role} at {company}.
+            resume_prompt = f"""Write a 2-page max ATS-optimised resume for {P['name']} targeting: {role} at {company}.
 {framing}
 JOB DESCRIPTION: {jd[:2000]}
 {"AI ROLE: Feature AI projects." if ai_role else ""}
-Plain text, clear section headers, measurable metrics. Do not fabricate."""
+STEP 1: Extract exact keywords, tools, methodologies from the JD above and use them throughout.
+FORMAT: Plain text, ALL CAPS section headers, "- " bullets, no markdown.
+SECTIONS: HEADER (4 lines) | PROFESSIONAL SUMMARY (4 sentences, 80 words, mirror JD keywords) | CORE SKILLS (max 24, include all JD tools) | PROFESSIONAL EXPERIENCE (primary role 5 bullets, others 3 bullets, every bullet = action verb + JD keyword + metric) | EDUCATION & CERTIFICATIONS.
+TARGET: 600-750 words max (2 pages). Cut filler, every line must match JD language."""
             resume_text = call_claude(resume_prompt)
             api_call_count += 1
 
@@ -3908,7 +3920,7 @@ def linkedin_import_from_bookmarklet():
                 "jd": (lj.get("jd") or "")[:8000],
                 "status": "saved",
                 "source": "LinkedIn",
-                "roleType": lj.get("roleType", "Business Analyst"),
+                "roleType": lj.get("roleType", ""),
                 "dateApplied": lj.get("dateApplied", datetime.datetime.now().isoformat()),
                 "datePosted": lj.get("datePosted", ""),
                 "companyLogo": lj.get("companyLogo", ""),
