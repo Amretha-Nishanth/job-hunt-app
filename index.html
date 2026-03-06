@@ -618,82 +618,82 @@ function copyBookmarklet() {
  p.push('var bx=document.createElement("div");');
  p.push('bx.style.cssText="background:#fff;border-radius:16px;padding:28px 36px;max-width:420px;width:90%;text-align:center;";');
  p.push('var tl=document.createElement("div");tl.textContent="LinkedIn Job Importer";tl.style.cssText="font-weight:700;color:#0a66c2;font-size:17px;margin-bottom:8px;";bx.appendChild(tl);');
- p.push('var mg=document.createElement("div");mg.id="jt-mg";mg.style.cssText="font-size:13px;color:#444;margin-bottom:14px;";mg.textContent="Starting...";bx.appendChild(mg);');
+ p.push('var mg=document.createElement("div");mg.style.cssText="font-size:13px;color:#444;margin-bottom:14px;";mg.textContent="Starting...";bx.appendChild(mg);');
  p.push('var bw=document.createElement("div");bw.style.cssText="background:#e8f0fe;border-radius:8px;height:10px;overflow:hidden;margin-bottom:10px;";');
- p.push('var br=document.createElement("div");br.id="jt-br";br.style.cssText="background:#0a66c2;height:100%;width:2%;transition:width 0.4s;border-radius:8px;";bw.appendChild(br);bx.appendChild(bw);');
+ p.push('var br=document.createElement("div");br.style.cssText="background:#0a66c2;height:100%;width:2%;transition:width 0.4s;border-radius:8px;";bw.appendChild(br);bx.appendChild(bw);');
  p.push('var ct=document.createElement("div");ct.style.cssText="font-size:13px;font-weight:600;color:#0a66c2;margin-bottom:12px;";ct.textContent="0 jobs found";bx.appendChild(ct);');
  p.push('var cb=document.createElement("button");cb.textContent="Cancel";cb.style.cssText="padding:6px 18px;border:1px solid #ccc;border-radius:6px;cursor:pointer;font-size:12px;";bx.appendChild(cb);');
  p.push('ov.appendChild(bx);document.body.appendChild(ov);');
  p.push('var cancelled=false;cb.onclick=function(){cancelled=true;ov.remove();window.__jtRunning=false;};');
  p.push('function sleep(ms){return new Promise(function(r){setTimeout(r,ms);})}');
 
- // Scraper
  p.push('var seen={};var jobs=[];');
  p.push('function scrapeCurrentPage(){');
  p.push('var links=document.querySelectorAll("a");');
  p.push('for(var li=0;li<links.length;li++){');
- p.push('var a=links[li];');
- p.push('var href=(a.href||"");');
- p.push('var qi=href.indexOf("?");if(qi>-1)href=href.substring(0,qi);');
- p.push('var hashi=href.indexOf("#");if(hashi>-1)href=href.substring(0,hashi);');
- p.push('if(href.indexOf("/jobs/view/")<0)continue;');
- p.push('if(seen[href])continue;');
- p.push('seen[href]=true;');
- p.push('var card=a;');
- p.push('for(var up=0;up<10;up++){if(!card.parentElement)break;card=card.parentElement;if(card.offsetHeight>80&&card.offsetHeight<700)break;}');
- p.push('var allEls=card.querySelectorAll("[class]");');
- p.push('var t="";');
- p.push('for(var ei=0;ei<allEls.length;ei++){');
- p.push('var cls=typeof allEls[ei].className==="string"?allEls[ei].className:"";');
- p.push('if(cls.indexOf("t-16")>-1){var tx=(allEls[ei].innerText||"").trim();if(tx.length>1&&tx.length<200){t=tx;break;}}');
- p.push('}');
- p.push('var c="Unknown";');
- p.push('for(var ei2=0;ei2<allEls.length;ei2++){');
- p.push('var cls2=typeof allEls[ei2].className==="string"?allEls[ei2].className:"";');
- p.push('if(cls2.indexOf("t-14")>-1&&cls2.indexOf("t-black")>-1){var cx=(allEls[ei2].innerText||"").trim();if(cx.length>1&&cx.length<150&&cx!==t){c=cx;break;}}');
- p.push('}');
- p.push('var datePosted="";');
- p.push('for(var ei3=0;ei3<allEls.length;ei3++){');
- p.push('var cls3=typeof allEls[ei3].className==="string"?allEls[ei3].className:"";');
- p.push('if(cls3.indexOf("t-12")>-1){var dx=(allEls[ei3].innerText||"").trim();if(dx.indexOf("ago")>-1||dx.indexOf("Posted")>-1){datePosted=dx.replace("Posted","").trim();break;}}');
- p.push('}');
- p.push('var jidx=href.indexOf("/jobs/view/")+11;');
- p.push('var jend=href.indexOf("/",jidx);');
- p.push('var jid=jend>-1?href.substring(jidx,jend):href.substring(jidx);');
- p.push('if(t)jobs.push({role:t,company:c,url:href,linkedInId:jid?"li_"+jid:"",source:"LinkedIn",status:"saved",jd:"",datePosted:datePosted});');
+ p.push('  var a=links[li];');
+ p.push('  var href=(a.href||"").split("?")[0];');
+ p.push('  if(href.indexOf("/jobs/view/")<0||seen[href])continue;');
+ p.push('  seen[href]=true;');
+ p.push('  var card=a;');
+ p.push('  for(var up=0;up<10;up++){');
+ p.push('    if(!card.parentElement)break;');
+ p.push('    card=card.parentElement;');
+ p.push('    if(card.offsetHeight>=107&&card.offsetHeight<=300)break;');
+  p.push('  if((card.innerText||"")\.trim()\.length<5&&card.parentElement)card=card.parentElement;');
+ p.push('  }');
+ p.push('  var raw=(card.innerText||"").split("\\n");');
+ p.push('  var lines=[];');
+ p.push('  for(var ri=0;ri<raw.length;ri++){');
+ p.push('    var ln=raw[ri].trim();');
+ p.push('    if(ln.length>1&&ln!==", Verified"&&ln.indexOf("com.linkedin")<0&&ln.charAt(0)!=="{")lines.push(ln);');
+ p.push('  }');
+ p.push('  var t=lines[0]||"";');
+  p.push('  var logoEl=card.querySelector("img[src*=company-logo],img[src*=companyLogo]");var logo=logoEl?logoEl.src:"";');
+ p.push('  var c=lines[1]||"Unknown";');
+ p.push('  var datePosted=lines[3]||"";');
+ p.push('  var jidx=href.indexOf("/jobs/view/")+11;');
+ p.push('  var jid=href.substring(jidx).replace(/\\/.*$/,"");');
+ p.push('  if(t.length>1)jobs.push({role:t,company:c,url:href,linkedInId:jid?"li_"+jid:"",source:"LinkedIn",status:"saved",jd:"",datePosted:datePosted,companyLogo:logo});');
  p.push('}');
  p.push('}');
 
- // Paginate using Next button
- p.push('var page=1;');
  p.push('window.scrollTo(0,0);await sleep(1000);');
  p.push('scrapeCurrentPage();');
  p.push('ct.textContent=jobs.length+" jobs found";');
+ p.push('var page=1;');
  p.push('while(!cancelled){');
- p.push('var nextBtn=null;');
- p.push('var btns=document.querySelectorAll("button");');
- p.push('for(var bi=0;bi<btns.length;bi++){if((btns[bi].innerText||"").trim().toLowerCase()==="next"){nextBtn=btns[bi];break;}}');
- p.push('if(!nextBtn||nextBtn.disabled)break;');
- p.push('page++;');
- p.push('mg.textContent="Loading page "+page+"...";');
- p.push('br.style.width=Math.min(88,10+(page*10))+"%";');
- p.push('var prevFirst=document.querySelector("a");var allA=document.querySelectorAll("a");for(var pi=0;pi<allA.length;pi++){if(allA[pi].href&&allA[pi].href.indexOf("/jobs/view/")>-1){prevFirst=allA[pi];break;}}var prevHref=prevFirst?prevFirst.href:"";');
- p.push('nextBtn.click();');
- p.push('for(var w=0;w<30;w++){await sleep(500);var newFirst=null;var chkA=document.querySelectorAll("a");for(var ci=0;ci<chkA.length;ci++){if(chkA[ci].href&&chkA[ci].href.indexOf("/jobs/view/")>-1){newFirst=chkA[ci];break;}}if(newFirst&&newFirst.href!==prevHref)break;}');
- p.push('await sleep(800);');
- p.push('scrapeCurrentPage();');
- p.push('ct.textContent=jobs.length+" jobs found";');
+ p.push('  var nextBtn=null;');
+ p.push('  var btns=document.querySelectorAll("button");');
+ p.push('  for(var bi=0;bi<btns.length;bi++){if((btns[bi].innerText||"").trim().toLowerCase()==="next"&&!btns[bi].disabled){nextBtn=btns[bi];break;}}');
+ p.push('  if(!nextBtn)break;');
+ p.push('  page++;');
+ p.push('  mg.textContent="Loading page "+page+"...";');
+ p.push('  br.style.width=Math.min(88,page*6)+"%";');
+ p.push('  var prevHref="";');
+ p.push('  for(var pi=0;pi<links.length;pi++){if(links[pi].href&&links[pi].href.indexOf("/jobs/view/")>-1){prevHref=links[pi].href;break;}}');
+ p.push('  nextBtn.click();');
+ p.push('  for(var w=0;w<30;w++){');
+ p.push('    await sleep(500);');
+ p.push('    var chkLinks=document.querySelectorAll("a");');
+ p.push('    var gotNew=false;');
+ p.push('    for(var ci2=0;ci2<chkLinks.length;ci2++){if(chkLinks[ci2].href&&chkLinks[ci2].href.indexOf("/jobs/view/")>-1&&chkLinks[ci2].href!==prevHref){gotNew=true;break;}}');
+ p.push('    if(gotNew)break;');
+ p.push('  }');
+ p.push('  await sleep(500);');
+ p.push('  links=document.querySelectorAll("a");');
+ p.push('  scrapeCurrentPage();');
+ p.push('  ct.textContent=jobs.length+" jobs found";');
  p.push('}');
 
- // Send and show success — NO redirect
- p.push('if(!jobs.length){ov.remove();window.__jtRunning=false;alert("No jobs found. Go to linkedin.com/my-items/saved-jobs/ and try again.");return;}');
+ p.push('if(!jobs.length){ov.remove();window.__jtRunning=false;alert("No jobs found.");return;}');
  p.push('mg.textContent="Sending "+jobs.length+" jobs to tracker...";br.style.width="93%";');
  p.push('var ok=false;');
  p.push('try{var res=await fetch("APPURL/api/linkedin-import",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jobs:jobs,secret:"jobhunt2025"})});ok=res.ok;}catch(e){}');
  p.push('await sleep(400);');
  p.push('br.style.width="100%";');
- p.push('mg.textContent=ok?"Done! "+jobs.length+" jobs saved to tracker.":"Saved locally. Open tracker to view.";');
- p.push('mg.style.color="#16a34a";');
+ p.push('mg.textContent=ok?"Done! "+jobs.length+" jobs saved.":"Error saving — check tracker.";');
+ p.push('mg.style.color=ok?"#16a34a":"#dc2626";');
  p.push('cb.textContent="Close";');
  p.push('window.__jtRunning=false;');
  p.push('})();');
@@ -2588,9 +2588,12 @@ function renderRow(j) {
  // Apply Kit button — now in its own column
  const kitBtn = `<button class="btn btn-xs" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#7c3aed;border:1.5px solid #ddd6fe;font-weight:700;font-size:11px;padding:3px 10px;" onclick="openApplyKitForJob('${j.id}')" title="Generate resume & cover letter">&#128230; Kit</button>`;
  return `<div class="${rowClass}" data-id="${j.id}">
+ <div style="display:flex;align-items:center;gap:8px;">
+ ${j.companyLogo ? `<img src="${j.companyLogo}" style="width:28px;height:28px;border-radius:4px;object-fit:contain;flex-shrink:0;background:#f3f4f6;" onerror="this.style.display='none'">` : ''}
  <div>
  <div class="job-row-company">${j.isDemo ? ' ' : ''}${typeof j.company === 'object' ? (j.company.text || j.company.name || '') : (j.company || '')}</div>
  ${j.roleType ? `<div style="font-size:10px;color:var(--blue);font-weight:600;">${typeof j.roleType === 'object' ? (j.roleType.text || '') : j.roleType}</div>` : ''}
+ </div>
  </div>
  <div>
  <div class="job-row-role">${typeof j.role === 'object' ? (j.role.text || '') : (j.role || '')}</div>

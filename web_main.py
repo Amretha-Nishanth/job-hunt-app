@@ -496,11 +496,7 @@ def is_ai_role(jd, role_type):
 @app.route("/index.html")
 def index():
     try:
-        resp = app.make_response(render_template("index.html"))
-        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        resp.headers['Pragma'] = 'no-cache'
-        resp.headers['Expires'] = '0'
-        return resp
+        return render_template("index.html")
     except Exception as e:
         app.logger.error(f"Template error: {e}")
         return f"<h2>App is running!</h2><p>Template error: {e}</p><p>BASE_DIR: {BASE_DIR}</p>", 500
@@ -2586,10 +2582,15 @@ def bulk_apply():
     if not incoming_jobs:
         return jsonify({"error": "No job data provided"}), 400
 
+    import time as _time2
+
+    # Cap at 20 jobs per bulk run to avoid Groq rate limits (2 API calls per job)
+    MAX_BULK = 20
     results = []
     generated = 0
     skipped = 0
     errors = 0
+    api_call_count = 0
 
     for job in incoming_jobs:
         job_id = str(job.get("id", ""))
@@ -2609,7 +2610,13 @@ def bulk_apply():
 
         # Skip if no JD
         if not jd or len(jd) < 50:
-            results.append({"id": job_id, "status": "skipped", "reason": "No JD available"})
+            results.append({"id": job_id, "status": "skipped", "reason": "No JD — add JD first"})
+            skipped += 1
+            continue
+
+        # Cap bulk generation to avoid rate limits
+        if generated >= MAX_BULK:
+            results.append({"id": job_id, "status": "skipped", "reason": f"Batch limit reached ({MAX_BULK}/run). Run again to continue."})
             skipped += 1
             continue
 
@@ -2618,6 +2625,10 @@ def bulk_apply():
             P = get_active_profile()
             framing = build_product_framing(P)
 
+            # Rate limit: 2s between each job's API calls (= ~20 req/min, under Groq limit)
+            if api_call_count > 0:
+                _time2.sleep(2)
+
             # Generate resume via AI
             resume_prompt = f"""Write an ATS-optimised resume for {P['name']} targeting: {role} at {company}.
 {framing}
@@ -2625,13 +2636,23 @@ JOB DESCRIPTION: {jd[:2000]}
 {"AI ROLE: Feature AI projects." if ai_role else ""}
 Plain text, clear section headers, measurable metrics. Do not fabricate."""
             resume_text = call_claude(resume_prompt)
+            api_call_count += 1
+
+            if resume_text.startswith("Error:") or resume_text.startswith("API error:"):
+                raise Exception(f"AI error: {resume_text}")
+
+            _time2.sleep(2)
 
             # Generate cover letter via AI
             cover_prompt = f"""Write a 300-word cover letter for {P['name']} applying to {role} at {company}.
 {framing}
-JOB DESCRIPTION: {jd[:2000]}
+JOB DESCRIPTION: {jd[:1500]}
 Plain text, specific to company, include metrics."""
             cover_text = call_claude(cover_prompt)
+            api_call_count += 1
+
+            if cover_text.startswith("Error:") or cover_text.startswith("API error:"):
+                raise Exception(f"AI error: {cover_text}")
 
             # Create .docx
             resume_bytes = _create_docx_from_text(resume_text)
@@ -3533,7 +3554,7 @@ def linkedin_scrape_saved_jobs_via_cookie(max_days=30):
     Uses LinkedIn's internal Voyager REST API — lightweight HTTP requests only.
     Returns (jobs_list, error_message).
     """
-    import re, uuid, time as _time, json
+    import re, uuid, time as _time
 
     li_at, source = _get_or_login_li_at()
     if not li_at:
@@ -3564,174 +3585,237 @@ def linkedin_scrape_saved_jobs_via_cookie(max_days=30):
     max_pages = 15  # safety limit
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=max_days)
 
-    # ── HTML-FIRST approach: fetch saved-jobs page and parse embedded data ──
-    # LinkedIn retires REST/GraphQL endpoints frequently.
-    # Instead, we fetch the HTML page and extract job data from:
-    #   1) <code> blocks containing JSON (LinkedIn Ember hydration data)
-    #   2) Regex extraction of job links/titles from raw HTML
-    #   3) REST API as last-resort fallback
+    for page in range(max_pages):
+        url = (
+            "https://www.linkedin.com/voyager/api/graphql"
+            f"?variables=(count:{page_size},start:{start})"
+            "&queryId=voyagerJobsDashSavedJobPostingsByMember.f9ffd3a93b94f4e03e6a55301002cda7"
+        )
+        print(f"[LinkedIn Cookie] Page {page+1}, start={start}...")
 
-    seen_ids = set()
+        try:
+            resp = http_requests.get(url, headers=headers, cookies=cookies, timeout=20)
+        except Exception as e:
+            print(f"[LinkedIn Cookie] Request error: {e}")
+            break
 
-    def _parse_included_entities(included):
-        """Parse LinkedIn's included entities array into job dicts."""
-        jobs_out = []
-        cos = {}
+        if resp.status_code in (401, 403):
+            # Cookie expired — try re-login with credentials
+            print("[LinkedIn Cookie] Session expired, attempting credential re-login...")
+            new_li_at = _linkedin_login_for_cookie()
+            if new_li_at:
+                li_at = new_li_at
+                cookies["li_at"] = li_at
+                print("[LinkedIn Cookie] Re-login successful, retrying request...")
+                try:
+                    resp = http_requests.get(url, headers=headers, cookies=cookies, timeout=20)
+                except Exception as e:
+                    print(f"[LinkedIn Cookie] Retry error: {e}")
+                    break
+                if resp.status_code != 200:
+                    return [], "LinkedIn session expired and re-login did not help"
+            else:
+                return [], "LinkedIn session expired — re-login failed. Verify from browser & retry."
+        if resp.status_code != 200:
+            # Try fallback REST endpoint
+            url2 = (
+                "https://www.linkedin.com/voyager/api/savesToDashJobPostings"
+                f"?count={page_size}&q=savesToDashJobPostingsByMember&start={start}"
+            )
+            try:
+                resp = http_requests.get(url2, headers=headers, cookies=cookies, timeout=20)
+            except Exception as e:
+                print(f"[LinkedIn Cookie] Fallback request error: {e}")
+                break
+            if resp.status_code in (401, 403):
+                return [], "LinkedIn session expired — re-login failed. Verify from browser & retry."
+            if resp.status_code != 200:
+                print(f"[LinkedIn Cookie] API returned {resp.status_code}")
+                break
+
+        try:
+            data = resp.json()
+        except Exception:
+            print(f"[LinkedIn Cookie] Invalid JSON response")
+            break
+
+        # Parse the response — LinkedIn uses "included" array with entity types
+        included = data.get("included", data.get("elements", []))
+        if not included and "data" in data:
+            # GraphQL wrapper
+            inner = data["data"]
+            if isinstance(inner, dict):
+                for v in inner.values():
+                    if isinstance(v, dict) and "elements" in v:
+                        included = v["elements"]
+                        break
+            if not included:
+                included = data.get("included", [])
+
+        # Build lookup maps for companies and job postings from included entities
+        companies = {}
         postings = {}
+        saved_meta = []  # saved-job wrapper entities with timestamps
+
         for item in included:
             urn = item.get("entityUrn") or item.get("$id") or ""
             t = item.get("$type", "")
+
+            # Company / Organization
             if "Company" in t or "Organization" in t or "company" in urn:
-                cos[urn] = item.get("name") or item.get("universalName") or "Unknown"
+                companies[urn] = item.get("name") or item.get("universalName") or "Unknown"
+
+            # Job Posting
             if "JobPosting" in t or "jobPosting" in urn:
                 postings[urn] = item
+
+            # Saved-job wrapper (has savedAt timestamp)
+            if "SavedJob" in t or "savedJob" in str(item.get("$recipeTypes", "")):
+                saved_meta.append(item)
+
+            # Also capture items that have 'title' + 'companyDetails' (direct posting)
             if item.get("title") and (item.get("companyDetails") or item.get("companyName")):
                 postings[urn] = item
-        for urn, jp in postings.items():
-            title = jp.get("title", "")
-            if not title:
-                continue
-            m = re.search(r"(\d{8,})", urn)
-            job_id = m.group(1) if m else (str(jp.get("jobPostingId", "")) or "")
-            if not job_id or job_id in seen_ids:
-                continue
-            seen_ids.add(job_id)
-            company = "Unknown"
-            comp_ref = (jp.get("companyDetails") or {}).get("*companyResolutionResult") or \
-                       (jp.get("companyDetails") or {}).get("company") or jp.get("*company") or ""
-            if isinstance(comp_ref, str) and comp_ref in cos:
-                company = cos[comp_ref]
-            elif jp.get("companyName"):
-                company = jp["companyName"]
-            jd = ""
-            desc = jp.get("description") or jp.get("descriptionText") or {}
-            if isinstance(desc, dict):
-                jd = desc.get("text", "")
-            elif isinstance(desc, str):
-                jd = desc
-            jobs_out.append({
-                "role": title, "company": company,
-                "url": f"https://www.linkedin.com/jobs/view/{job_id}/",
-                "linkedInId": f"li_{job_id}", "jd": jd[:4000],
-                "source": "LinkedIn", "status": "saved",
-                "roleType": "Business Analyst",
-                "dateApplied": datetime.datetime.now().isoformat(),
-            })
-        return jobs_out
 
-    # Phase 1: Fetch saved-jobs HTML page and parse <code> blocks
-    print("[LinkedIn Cookie] Phase 1: Fetching saved-jobs HTML page...")
-    try:
-        html_resp = http_requests.get(
-            "https://www.linkedin.com/my-items/saved-jobs/",
-            headers={**headers, "Accept": "text/html,application/xhtml+xml,*/*"},
-            cookies=cookies, timeout=20
-        )
-        if html_resp.status_code in (401, 403):
-            return [], "LinkedIn session expired — cookie invalid. Verify from browser & retry."
-        if html_resp.status_code == 200:
-            html_text = html_resp.text
-            # Extract JSON from <code id="..."><!--{...}--></code> blocks
-            code_blocks = re.findall(r'<code[^>]*><!--({.+?})--></code>', html_text, re.DOTALL)
-            if not code_blocks:
-                # Also try without HTML comment wrapper
-                code_blocks = re.findall(r'<code[^>]*id="[^"]*"[^>]*>({.+?})</code>', html_text, re.DOTALL)
-            print(f"[LinkedIn Cookie] Found {len(code_blocks)} code blocks in HTML")
-            for cb in code_blocks:
-                try:
-                    cdata = json.loads(cb) if isinstance(cb, str) else cb
-                    inc = cdata.get("included") or []
-                    if not inc and "body" in cdata:
-                        inc = cdata["body"].get("included", [])
-                    if not inc and "data" in cdata:
-                        inc = cdata["data"].get("included", [])
-                    if inc:
-                        parsed = _parse_included_entities(inc)
-                        all_jobs.extend(parsed)
-                        if parsed:
-                            print(f"[LinkedIn Cookie] Extracted {len(parsed)} jobs from code block")
-                except (json.JSONDecodeError, ValueError, TypeError):
-                    pass
+        # If we got saved_meta wrappers, extract job refs from them
+        page_jobs = []
+        if saved_meta:
+            for sm in saved_meta:
+                # Get savedAt timestamp for 30-day filter
+                saved_at = sm.get("savedAt") or sm.get("createdAt") or 0
+                if isinstance(saved_at, (int, float)) and saved_at > 1e12:
+                    saved_at = saved_at / 1000  # ms to seconds
+                if saved_at and saved_at > 0:
+                    saved_dt = datetime.datetime.fromtimestamp(saved_at, tz=datetime.timezone.utc)
+                    if saved_dt < cutoff:
+                        continue  # Skip jobs saved more than max_days ago
 
-            # Phase 1b: Regex extraction of job IDs and titles from HTML
-            if not all_jobs:
-                print("[LinkedIn Cookie] Phase 1b: Regex extraction from HTML...")
-                # Find job view links
-                job_links = re.findall(r'href="[^"]*?/jobs/view/(\d+)[^"]*"', html_text)
-                for jid in job_links:
-                    if jid in seen_ids:
-                        continue
-                    seen_ids.add(jid)
-                    all_jobs.append({
-                        "role": "LinkedIn Saved Job", "company": "Unknown",
-                        "url": f"https://www.linkedin.com/jobs/view/{jid}/",
-                        "linkedInId": f"li_{jid}", "jd": "",
-                        "source": "LinkedIn", "status": "saved",
-                        "roleType": "Business Analyst",
-                        "dateApplied": datetime.datetime.now().isoformat(),
-                    })
-                if all_jobs:
-                    print(f"[LinkedIn Cookie] Found {len(all_jobs)} job links via regex")
+                # Find the job posting reference
+                jp_ref = sm.get("jobPosting") or sm.get("*jobPosting") or ""
+                if isinstance(jp_ref, dict):
+                    jp_ref = jp_ref.get("entityUrn") or jp_ref.get("$id") or ""
+                jp = postings.get(jp_ref, {})
+                if not jp and isinstance(jp_ref, str):
+                    # Try partial match
+                    for k, v in postings.items():
+                        if jp_ref in k or k in jp_ref:
+                            jp = v
+                            break
+
+                title = jp.get("title") or sm.get("title") or ""
+                if not title:
+                    continue
+
+                # Company name
+                company = "Unknown"
+                comp_ref = jp.get("companyDetails", {}).get("*companyResolutionResult") or \
+                           jp.get("companyDetails", {}).get("company") or \
+                           jp.get("*company") or ""
+                if isinstance(comp_ref, str) and comp_ref in companies:
+                    company = companies[comp_ref]
+                elif jp.get("companyName"):
+                    company = jp["companyName"]
+                else:
+                    # Scan included for inline company names
+                    for ci in included:
+                        cn = ci.get("companyName")
+                        if cn and ci.get("entityUrn") == jp.get("entityUrn"):
+                            company = cn
+                            break
+
+                # Extract job ID from URN
+                job_urn = jp.get("entityUrn") or jp_ref or ""
+                m = re.search(r"(\d{8,})", job_urn)
+                job_id = m.group(1) if m else ""
+                job_url = f"https://www.linkedin.com/jobs/view/{job_id}/" if job_id else ""
+
+                # JD text
+                jd = ""
+                desc = jp.get("description") or jp.get("descriptionText") or {}
+                if isinstance(desc, dict):
+                    jd = desc.get("text", "")
+                elif isinstance(desc, str):
+                    jd = desc
+
+                page_jobs.append({
+                    "role": title,
+                    "company": company,
+                    "url": job_url,
+                    "linkedInId": f"li_{job_id}" if job_id else "",
+                    "jd": jd[:4000],
+                    "source": "LinkedIn",
+                    "status": "saved",
+                    "roleType": "Business Analyst",
+                    "dateApplied": datetime.datetime.now().isoformat(),
+                })
         else:
-            print(f"[LinkedIn Cookie] HTML page returned status {html_resp.status_code}")
-    except Exception as e:
-        print(f"[LinkedIn Cookie] HTML fetch error: {e}")
+            # Fallback: parse postings directly (flat response format)
+            for urn, jp in postings.items():
+                title = jp.get("title", "")
+                if not title:
+                    continue
 
-    # Phase 2: Additional pages — try paginated HTML if first page found jobs
-    if all_jobs and len(all_jobs) >= 25:
-        print("[LinkedIn Cookie] Checking for additional pages...")
-        for page_num in range(1, max_pages):
-            page_start = page_num * page_size
-            try:
-                pg_resp = http_requests.get(
-                    f"https://www.linkedin.com/my-items/saved-jobs/?start={page_start}",
-                    headers={**headers, "Accept": "text/html,application/xhtml+xml,*/*"},
-                    cookies=cookies, timeout=20
-                )
-                if pg_resp.status_code != 200:
-                    break
-                pg_html = pg_resp.text
-                pg_codes = re.findall(r'<code[^>]*><!--({.+?})--></code>', pg_html, re.DOTALL)
-                if not pg_codes:
-                    pg_codes = re.findall(r'<code[^>]*id="[^"]*"[^>]*>({.+?})</code>', pg_html, re.DOTALL)
-                page_found = 0
-                for cb in pg_codes:
-                    try:
-                        cdata = json.loads(cb)
-                        inc = cdata.get("included") or []
-                        if not inc and "body" in cdata:
-                            inc = cdata["body"].get("included", [])
-                        if inc:
-                            parsed = _parse_included_entities(inc)
-                            all_jobs.extend(parsed)
-                            page_found += len(parsed)
-                    except (json.JSONDecodeError, ValueError, TypeError):
-                        pass
-                if page_found == 0:
-                    # Also try regex
-                    pg_links = re.findall(r'href="[^"]*?/jobs/view/(\d+)[^"]*"', pg_html)
-                    for jid in pg_links:
-                        if jid in seen_ids:
-                            continue
-                        seen_ids.add(jid)
-                        page_found += 1
-                        all_jobs.append({
-                            "role": "LinkedIn Saved Job", "company": "Unknown",
-                            "url": f"https://www.linkedin.com/jobs/view/{jid}/",
-                            "linkedInId": f"li_{jid}", "jd": "",
-                            "source": "LinkedIn", "status": "saved",
-                            "roleType": "Business Analyst",
-                            "dateApplied": datetime.datetime.now().isoformat(),
-                        })
-                print(f"[LinkedIn Cookie] Page {page_num+1}: {page_found} new jobs (total: {len(all_jobs)})")
-                if page_found == 0:
-                    break
-                _time.sleep(1)
-            except Exception as e:
-                print(f"[LinkedIn Cookie] Page {page_num+1} error: {e}")
-                break
+                # Check listedAt / repostedAt for 30-day filter
+                listed = jp.get("listedAt") or jp.get("repostedAt") or 0
+                if isinstance(listed, (int, float)) and listed > 1e12:
+                    listed = listed / 1000
+                if listed and listed > 0:
+                    listed_dt = datetime.datetime.fromtimestamp(listed, tz=datetime.timezone.utc)
+                    if listed_dt < cutoff:
+                        continue
 
-    print(f"[LinkedIn Cookie] Total jobs found: {len(all_jobs)}")
+                company = "Unknown"
+                comp_ref = jp.get("companyDetails", {}).get("*companyResolutionResult") or \
+                           jp.get("*company") or ""
+                if isinstance(comp_ref, str) and comp_ref in companies:
+                    company = companies[comp_ref]
+                elif jp.get("companyName"):
+                    company = jp["companyName"]
+
+                m = re.search(r"(\d{8,})", urn)
+                job_id = m.group(1) if m else ""
+                job_url = f"https://www.linkedin.com/jobs/view/{job_id}/" if job_id else ""
+
+                jd = ""
+                desc = jp.get("description") or jp.get("descriptionText") or {}
+                if isinstance(desc, dict):
+                    jd = desc.get("text", "")
+                elif isinstance(desc, str):
+                    jd = desc
+
+                page_jobs.append({
+                    "role": title,
+                    "company": company,
+                    "url": job_url,
+                    "linkedInId": f"li_{job_id}" if job_id else "",
+                    "jd": jd[:4000],
+                    "source": "LinkedIn",
+                    "status": "saved",
+                    "roleType": "Business Analyst",
+                    "dateApplied": datetime.datetime.now().isoformat(),
+                })
+
+        all_jobs.extend(page_jobs)
+        print(f"[LinkedIn Cookie] Page {page+1}: {len(page_jobs)} jobs (total: {len(all_jobs)})")
+
+        # Pagination: check if there are more
+        paging = data.get("paging", {})
+        if not paging and "data" in data:
+            for v in data["data"].values():
+                if isinstance(v, dict) and "paging" in v:
+                    paging = v["paging"]
+                    break
+        total_results = paging.get("total", 0)
+        raw_count = len(included)  # how many raw items LinkedIn returned (before our date filtering)
+        # Stop only if: (a) LinkedIn returned NO raw items, or (b) we've fetched past the total count
+        if raw_count == 0:
+            print(f"[LinkedIn Cookie] No more raw items from API, stopping pagination")
+            break
+        if total_results > 0 and start + page_size >= total_results:
+            print(f"[LinkedIn Cookie] Reached total ({total_results}), stopping pagination")
+            break
+        start += page_size
+        _time.sleep(1)  # polite delay
 
     # ── Fetch JDs for jobs that don't have them yet ──
     if all_jobs:
@@ -3775,15 +3859,6 @@ def linkedin_scrape_saved_jobs_via_cookie(max_days=30):
 
 # ─── LINKEDIN IMPORT ENDPOINT (receives jobs from bookmarklet) ──────────────
 
-def _clean_linkedin_field(val, fallback=""):
-    """LinkedIn sometimes sends objects like {text: "title", ...} instead of strings."""
-    if isinstance(val, dict):
-        return val.get("text") or val.get("name") or fallback
-    if isinstance(val, str):
-        return val or fallback
-    return fallback
-
-
 @app.route("/api/linkedin-import", methods=["POST"])
 def linkedin_import_from_bookmarklet():
     """
@@ -3826,15 +3901,17 @@ def linkedin_import_from_bookmarklet():
             if li_id: ex_li_ids.add(li_id)
             to_insert.append({
                 "id": li_id or f"li_{int(_ts.time()*1000)}_{len(to_insert)}",
-                "role": _clean_linkedin_field(lj.get("role"), ""),
-                "company": _clean_linkedin_field(lj.get("company"), "Unknown"),
+                "role": lj.get("role", ""),
+                "company": lj.get("company", "Unknown"),
                 "url": curl,
                 "linkedInId": li_id,
-                "jd": _clean_linkedin_field(lj.get("jd"), "")[:8000],
+                "jd": (lj.get("jd") or "")[:8000],
                 "status": "saved",
                 "source": "LinkedIn",
-                "roleType": _clean_linkedin_field(lj.get("roleType"), "Business Analyst"),
+                "roleType": lj.get("roleType", "Business Analyst"),
                 "dateApplied": lj.get("dateApplied", datetime.datetime.now().isoformat()),
+                "datePosted": lj.get("datePosted", ""),
+                "companyLogo": lj.get("companyLogo", ""),
             })
 
         if to_insert:
@@ -3856,118 +3933,6 @@ def linkedin_import_from_bookmarklet():
         print(f"[LinkedIn Import] Error: {e}")
         traceback.print_exc()
         return jsonify({"status": "error", "error": str(e)}), 500
-
-
-# ─── LINKEDIN IMPORT VIA FORM POST (bypasses LinkedIn CSP connect-src) ──────
-
-@app.route("/api/linkedin-import-form", methods=["POST"])
-def linkedin_import_form():
-    """
-    Accept form POST from bookmarklet (bypasses LinkedIn CSP connect-src).
-    CSP blocks fetch/XHR to external domains but NOT form submissions.
-    Returns HTML that stores jobs in localStorage and redirects to tracker.
-    """
-    import time as _ts
-    import traceback
-    import base64 as _b64
-
-    try:
-        jobs_json = request.form.get("jobs", "[]")
-        secret = request.form.get("secret", "")
-        li_at = request.form.get("li_at", "")
-
-        if secret != AGENT_CRON_SECRET:
-            return "<html><body><h2>Unauthorized</h2></body></html>", 401
-
-        jobs = json.loads(jobs_json) if isinstance(jobs_json, str) else jobs_json
-
-        if not jobs:
-            return """<html><head><meta charset="utf-8"><title>No Jobs</title></head>
-<body style="font-family:sans-serif;text-align:center;padding:40px;">
-<h2>No jobs received</h2><p>Go back to LinkedIn and try again.</p>
-<a href="/">Go to tracker</a></body></html>"""
-
-        # Save li_at cookie if provided
-        if li_at:
-            try:
-                _upsert_setting("LI_AT_COOKIE", li_at)
-            except Exception:
-                pass
-
-        # Upsert to Supabase
-        sb = get_supabase()
-        added = 0
-        skipped = 0
-
-        if sb:
-            try:
-                ex_res = sb.table("jobs").select("url,linkedInId").execute()
-                ex_urls = {(j.get("url") or "").split("?")[0].rstrip("/") for j in (ex_res.data or []) if j.get("url")}
-                ex_li_ids = {j.get("linkedInId") for j in (ex_res.data or []) if j.get("linkedInId")}
-
-                to_insert = []
-                for lj in jobs:
-                    curl = (lj.get("url") or "").split("?")[0].rstrip("/")
-                    li_id = lj.get("linkedInId", "")
-                    if (curl and curl in ex_urls) or (li_id and li_id in ex_li_ids):
-                        skipped += 1
-                        continue
-                    if curl: ex_urls.add(curl)
-                    if li_id: ex_li_ids.add(li_id)
-                    to_insert.append({
-                        "id": li_id or f"li_{int(_ts.time()*1000)}_{len(to_insert)}",
-                        "role": _clean_linkedin_field(lj.get("role"), ""),
-                        "company": _clean_linkedin_field(lj.get("company"), "Unknown"),
-                        "url": curl,
-                        "linkedInId": li_id,
-                        "jd": _clean_linkedin_field(lj.get("jd"), "")[:8000],
-                        "status": "saved",
-                        "source": "LinkedIn",
-                        "roleType": _clean_linkedin_field(lj.get("roleType"), "Business Analyst"),
-                        "dateApplied": lj.get("dateApplied", datetime.datetime.now().isoformat()),
-                    })
-
-                if to_insert:
-                    BATCH = 50
-                    for i in range(0, len(to_insert), BATCH):
-                        sb.table("jobs").upsert(to_insert[i:i+BATCH], on_conflict="id").execute()
-
-                added = len(to_insert)
-                print(f"[LinkedIn Import Form] Done — {added} new, {skipped} duplicates")
-            except Exception as db_err:
-                print(f"[LinkedIn Import Form] DB error: {db_err}")
-                traceback.print_exc()
-
-        # Base64-encode jobs for safe embedding in HTML <script> tag
-        b64_jobs = _b64.b64encode(json.dumps(jobs).encode("utf-8")).decode("ascii")
-
-        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Importing {len(jobs)} Jobs...</title>
-<style>
-body{{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}}
-.card{{background:#1e293b;border-radius:16px;padding:40px;max-width:420px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.3);color:#e2e8f0;}}
-h2{{color:#38bdf8;margin:0 0 8px;}}
-p{{color:#94a3b8;margin:8px 0;}}
-.spinner{{width:32px;height:32px;border:3px solid #334155;border-top:3px solid #38bdf8;border-radius:50%;animation:spin 1s linear infinite;margin:16px auto;}}
-@keyframes spin{{to{{transform:rotate(360deg);}}}}
-</style></head>
-<body><div class="card">
-<div style="font-size:36px;">&#10004;&#65039;</div>
-<h2>{added} Jobs Imported!</h2>
-<p>{skipped} duplicates skipped</p>
-<div class="spinner"></div>
-<p style="font-size:13px;color:#64748b;">Redirecting to tracker...</p>
-</div>
-<script>
-try{{var j=atob("{b64_jobs}");localStorage.setItem("__bm_import",j);}}catch(e){{console.error("Import store error:",e);}}
-setTimeout(function(){{window.location.href="/";}},1500);
-</script></body></html>"""
-
-    except Exception as e:
-        print(f"[LinkedIn Import Form] Error: {e}")
-        traceback.print_exc()
-        return f"""<html><body style="font-family:sans-serif;text-align:center;padding:40px;">
-<h2 style="color:#dc2626;">Import Error</h2><p>{str(e)}</p>
-<p><a href="/">Go to tracker</a></p></body></html>""", 500
 
 
 # ─── LINKEDIN SAVED JOBS ONLY ENDPOINT ──────────────────────────────────────
