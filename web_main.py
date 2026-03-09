@@ -502,14 +502,33 @@ def index():
         return f"<h2>App is running!</h2><p>Template error: {e}</p><p>BASE_DIR: {BASE_DIR}</p>", 500
 
 def _inject_ai_projects(resume_text):
-    """Always inject AI & Personal Projects section before ACADEMIC QUALIFICATION."""
+    """Always inject exactly ONE AI & Personal Projects section before ACADEMIC QUALIFICATION.
+    Strips any AI-generated version first, then inserts our fixed canonical block."""
     import re as _re
 
-    PROJECTS = """\nAI & PERSONAL PROJECTS:\nAI Trade Analysis Platform | Python, Flask, Claude API (Anthropic), Render | 2025\nLive app: https://stock-monitor-8ak6.onrender.com\n- Independently designed and deployed a live AI-powered stock monitoring application using natural language processing and machine learning algorithms to monitor stock prices and provide real-time trade insights to users\n- Application uses Claude API (Anthropic) for generative AI analysis, combining international trade flow data and financial market data; gained hands-on experience in AI/ML integration, prompt engineering, LLM API development, Flask backend, and Render cloud deployment\n\nJob Hunt Automation App | Python, Flask, Supabase, Claude API, JavaScript | 2025\nLive app: https://job-hunt-app-r7my.onrender.com\n- Built and deployed a full-stack AI-powered job-hunt automation platform that generates tailored ATS-optimised resumes and cover letters, scores job fit using AI ranking, and tracks applications via a Kanban board\n- Engineered a LinkedIn bookmarklet for bulk job import, Supabase database for persistence, and Claude API for intelligent document generation — independently shipped end-to-end as a working product"""
+    PROJECTS = (
+        "\nAI & PERSONAL PROJECTS:\n"
+        "AI Trade Analysis Platform & Job Hunt Automation App | Python, Flask, Claude API, Supabase, Render | 2025\n"
+        "- Independently designed and deployed two live AI-powered applications: a stock monitoring platform "
+        "(https://stock-monitor-8ak6.onrender.com) using NLP and machine learning to monitor stock prices and provide "
+        "real-time trade insights, and a job-hunt automation app (https://job-hunt-app-r7my.onrender.com) that generates "
+        "tailored ATS-optimised resumes and cover letters, scores job fit via AI ranking, and tracks applications via a Kanban board\n"
+        "- Gained hands-on experience across the full product lifecycle: problem definition, prompt engineering, "
+        "LLM API integration (Claude API), Flask backend, Supabase database, LinkedIn bookmarklet development, "
+        "and end-to-end Render cloud deployment — independently shipped both products from scratch"
+    )
 
-    # Remove any AI projects block the AI generated (replace with ours)
+    # Strip ALL existing AI projects blocks (AI-generated or previously injected)
     resume_text = _re.sub(
-        r'\n(AI & PERSONAL PROJECTS|PERSONAL PROJECTS|AI PROJECTS):.*?(?=\nACADEMIC QUALIFICATION|\nEDUCATION)',
+        r'\n+AI & PERSONAL PROJECTS:.*?(?=\nACADEMIC QUALIFICATION|\nEDUCATION|\Z)',
+        '', resume_text, flags=_re.DOTALL | _re.IGNORECASE
+    )
+    resume_text = _re.sub(
+        r'\n+PERSONAL PROJECTS:.*?(?=\nACADEMIC QUALIFICATION|\nEDUCATION|\Z)',
+        '', resume_text, flags=_re.DOTALL | _re.IGNORECASE
+    )
+    resume_text = _re.sub(
+        r'\n+AI PROJECTS:.*?(?=\nACADEMIC QUALIFICATION|\nEDUCATION|\Z)',
         '', resume_text, flags=_re.DOTALL | _re.IGNORECASE
     )
 
@@ -558,17 +577,6 @@ def tailor_resume():
 JOB DESCRIPTION:
 {jd}
 
-"AI & PERSONAL PROJECTS (always include this section between PROFESSIONAL EXPERIENCE and ACADEMIC QUALIFICATION — include in every resume, reproduce these descriptions closely):
-AI Trade Analysis Platform | Python, Flask, Claude API (Anthropic), Render | 2025
-Live app: https://stock-monitor-8ak6.onrender.com
-- Independently designed and deployed a live AI-powered stock monitoring application using natural language processing and machine learning algorithms to monitor stock prices and provide real-time updates
-- Application uses Claude API (Anthropic) for generative AI analysis, combining international trade flow data and financial market data to surface actionable trade insights
-- Gained hands-on experience in AI/ML integration, prompt engineering, LLM API development, user-friendly interface design, Flask backend architecture, and Render cloud deployment
-
-Job Hunt Automation App | Python, Flask, Supabase, Claude API, JavaScript | 2025
-Live app: https://job-hunt-app-r7my.onrender.com
-- Built and deployed a full-stack AI-powered job-hunt automation platform that generates tailored ATS-optimised resumes and cover letters, scores job fit using AI ranking, and tracks applications via Kanban board
-- Engineered a LinkedIn bookmarklet for bulk job import, Supabase database for persistence, and Claude API for intelligent document generation — independently shipped end-to-end as a working product"
 
 ===== CANDIDATE MASTER DATA (use ALL of this) =====
 Name: {P.get('name','')}
@@ -1569,17 +1577,6 @@ def generate_docs():
 
 JOB DESCRIPTION:
 {jd[:3000]}
-"AI & PERSONAL PROJECTS (always include this section between PROFESSIONAL EXPERIENCE and ACADEMIC QUALIFICATION — include in every resume, reproduce these descriptions closely):
-AI Trade Analysis Platform | Python, Flask, Claude API (Anthropic), Render | 2025
-Live app: https://stock-monitor-8ak6.onrender.com
-- Independently designed and deployed a live AI-powered stock monitoring application using natural language processing and machine learning algorithms to monitor stock prices and provide real-time updates
-- Application uses Claude API (Anthropic) for generative AI analysis, combining international trade flow data and financial market data to surface actionable trade insights
-- Gained hands-on experience in AI/ML integration, prompt engineering, LLM API development, user-friendly interface design, Flask backend architecture, and Render cloud deployment
-
-Job Hunt Automation App | Python, Flask, Supabase, Claude API, JavaScript | 2025
-Live app: https://job-hunt-app-r7my.onrender.com
-- Built and deployed a full-stack AI-powered job-hunt automation platform that generates tailored ATS-optimised resumes and cover letters, scores job fit using AI ranking, and tracks applications via Kanban board
-- Engineered a LinkedIn bookmarklet for bulk job import, Supabase database for persistence, and Claude API for intelligent document generation — independently shipped end-to-end as a working product"
 
 ===== CANDIDATE MASTER DATA =====
 Name: {P.get('name','')} | Phone: {P.get('mobile','')} | Email: {P.get('email','')}
@@ -3010,13 +3007,7 @@ def bulk_apply():
             # Generate resume via AI
             resume_prompt = f"""Write a complete 2-page ATS resume for {P['name']} targeting: {role} at {company}.
 JOB DESCRIPTION: {jd[:2000]}
-"AI & PERSONAL PROJECTS (always include between EXPERIENCE and EDUCATION):
-AI Trade Analysis Platform | Python, Flask, Claude API, Render | 2025 | https://stock-monitor-8ak6.onrender.com
-- Designed and deployed a live AI stock monitoring app using NLP and ML to monitor stock prices and provide real-time trade insights via Claude API
-- Hands-on AI/ML: prompt engineering, LLM API integration, Flask backend, Render deployment, user-friendly interface design
-Job Hunt Automation App | Python, Flask, Supabase, Claude API | 2025 | https://job-hunt-app-r7my.onrender.com
-- Built full-stack AI job-hunt platform: ATS resume/cover letter generation, AI job scoring, LinkedIn bulk import, Kanban tracker
-- Independently shipped end-to-end product demonstrating hands-on AI product ownership"
+"(AI & Personal Projects section will be added automatically)"
 
 Use this master data — select bullets most relevant to the JD:
 Contact: {P.get('mobile','')} | {P.get('email','')} | {P.get('linkedin','')}
