@@ -535,7 +535,13 @@ def tailor_resume():
 JOB DESCRIPTION:
 {jd}
 
-{"" if not ai_role else "AI & PERSONAL PROJECTS (include between EXPERIENCE and EDUCATION, keep under 150 words):\nAI Trade Analysis Platform | Python, Flask, Claude API, Render | 2025\n- Designed and deployed a live AI trade analysis app (https://stock-monitor-8ak6.onrender.com) using generative AI and financial data for real-time insights\n- End-to-end AI product: problem definition, prompt engineering, LLM integration, Flask backend, cloud deployment\nJob Hunt Automation App | Python, Flask, Supabase, Claude API | 2025\n- Built and deployed an AI-powered job-hunt automation app (https://job-hunt-app-r7my.onrender.com) generating tailored resumes, cover letters and AI job scoring\n- Independently shipped full-stack AI product demonstrating hands-on product ownership beyond consulting"}
+"AI & PERSONAL PROJECTS (include this section between PROFESSIONAL EXPERIENCE and ACADEMIC QUALIFICATION — always include, every resume, max 150 words):
+AI Trade Analysis Platform | Python, Flask, Claude API, Render | 2025
+- Designed and deployed a live AI-powered trade analysis app (https://stock-monitor-8ak6.onrender.com) combining financial data with generative AI for real-time trade insights
+- Demonstrated end-to-end product ownership: problem definition, prompt engineering, LLM integration, Flask backend, Render cloud deployment
+Job Hunt Automation App | Python, Flask, Supabase, Claude API | 2025
+- Built and deployed an AI-powered job-hunt app (https://job-hunt-app-r7my.onrender.com) generating tailored resumes, cover letters and AI job scoring
+- Independently shipped a full-stack AI product, demonstrating hands-on product development beyond consulting delivery"
 
 ===== CANDIDATE MASTER DATA (use ALL of this) =====
 Name: {P.get('name','')}
@@ -1292,7 +1298,8 @@ def _create_docx_from_text(text, title="Document"):
         'PROFESSIONAL EXPERIENCE','EXPERIENCE','EDUCATION & CERTIFICATIONS',
         'ACADEMIC QUALIFICATION','EDUCATION','CERTIFICATIONS','PROJECTS',
         'AI & INNOVATION','KEY ACHIEVEMENTS','QUALIFICATIONS','CONTACT',
-        'PRODUCT IMPACT','INTEREST AREAS',
+        'PRODUCT IMPACT','INTEREST AREAS','AI & PERSONAL PROJECTS',
+        'PERSONAL PROJECTS','AI PROJECTS',
     }
     EDUCATION_SECTIONS = {
         'EDUCATION & CERTIFICATIONS','ACADEMIC QUALIFICATION','EDUCATION','CERTIFICATIONS'
@@ -1353,16 +1360,19 @@ def _create_docx_from_text(text, title="Document"):
     lines        = [l for l in text.split('\n')]
 
     # ── HARD TRUNCATE after education section ─────────────────────────────
-    # Find last "Certification:" line (marks end of education) and cut after it.
-    # This removes any cover-letter-style paragraphs the AI appends.
-    STOP_AFTER = ['certification:', 'anna university', 'coventry university']
-    last_edu_line = 0
+    # Cut any cover-letter-style trailing paragraphs after the last
+    # "Certification:" line that follows an ACADEMIC QUALIFICATION header.
+    # We find the ACADEMIC QUALIFICATION section and then the last cert line after it.
+    edu_start = -1
+    last_cert_line = -1
     for idx, ln in enumerate(lines):
-        lo = ln.strip().lower()
-        if any(lo.startswith(s) for s in STOP_AFTER):
-            last_edu_line = idx
-    if last_edu_line > 0:
-        lines = lines[:last_edu_line + 1]
+        lo = ln.strip().lower().rstrip(':')
+        if lo in ('academic qualification', 'education & certifications', 'education'):
+            edu_start = idx
+        if edu_start >= 0 and ln.strip().lower().startswith('certification:'):
+            last_cert_line = idx
+    if last_cert_line > 0:
+        lines = lines[:last_cert_line + 1]
 
     name_written = False
     contact_done = False
@@ -1531,7 +1541,13 @@ def generate_docs():
 
 JOB DESCRIPTION:
 {jd[:3000]}
-{"" if not ai_role else "AI & PERSONAL PROJECTS (between EXPERIENCE and EDUCATION, max 150 words):\nAI Trade Analysis Platform | Python, Flask, Claude API | 2025\n- Live AI trade analysis app (https://stock-monitor-8ak6.onrender.com) combining financial data with generative AI\n- Demonstrated: prompt engineering, LLM integration, Flask, Render deployment\nJob Hunt Automation App | Python, Flask, Supabase, Claude API | 2025\n- AI-powered job-hunt app (https://job-hunt-app-r7my.onrender.com) with tailored resume/cover letter generation and AI scoring\n- Full-stack AI product shipped independently"}
+"AI & PERSONAL PROJECTS (include this section between PROFESSIONAL EXPERIENCE and ACADEMIC QUALIFICATION — always include, every resume, max 150 words):
+AI Trade Analysis Platform | Python, Flask, Claude API, Render | 2025
+- Designed and deployed a live AI-powered trade analysis app (https://stock-monitor-8ak6.onrender.com) combining financial data with generative AI for real-time trade insights
+- Demonstrated end-to-end product ownership: problem definition, prompt engineering, LLM integration, Flask backend, Render cloud deployment
+Job Hunt Automation App | Python, Flask, Supabase, Claude API | 2025
+- Built and deployed an AI-powered job-hunt app (https://job-hunt-app-r7my.onrender.com) generating tailored resumes, cover letters and AI job scoring
+- Independently shipped a full-stack AI product, demonstrating hands-on product development beyond consulting delivery"
 
 ===== CANDIDATE MASTER DATA =====
 Name: {P.get('name','')} | Phone: {P.get('mobile','')} | Email: {P.get('email','')}
@@ -2961,7 +2977,7 @@ def bulk_apply():
             # Generate resume via AI
             resume_prompt = f"""Write a complete 2-page ATS resume for {P['name']} targeting: {role} at {company}.
 JOB DESCRIPTION: {jd[:2000]}
-{"" if not ai_role else "AI PROJECTS (max 150 words): AI Trade Analysis App (https://stock-monitor-8ak6.onrender.com) — generative AI + financial data, Flask, Render. Job Hunt App (https://job-hunt-app-r7my.onrender.com) — AI resume/cover letter generation, Supabase, full-stack."}
+"AI & PERSONAL PROJECTS (always include, between EXPERIENCE and EDUCATION, max 150 words): AI Trade Analysis Platform | Python, Flask, Claude API, Render | 2025 - Live AI trade analysis app (https://stock-monitor-8ak6.onrender.com) combining financial data with generative AI for real-time insights - End-to-end: prompt engineering, LLM integration, Flask, Render deployment Job Hunt Automation App | Python, Flask, Supabase, Claude API | 2025 - AI-powered job-hunt app (https://job-hunt-app-r7my.onrender.com) generating tailored resumes, cover letters and AI scoring - Full-stack AI product shipped independently"
 
 Use this master data — select bullets most relevant to the JD:
 Contact: {P.get('mobile','')} | {P.get('email','')} | {P.get('linkedin','')}
