@@ -501,6 +501,29 @@ def index():
         app.logger.error(f"Template error: {e}")
         return f"<h2>App is running!</h2><p>Template error: {e}</p><p>BASE_DIR: {BASE_DIR}</p>", 500
 
+def _inject_ai_projects(resume_text):
+    """Always inject AI & Personal Projects section before ACADEMIC QUALIFICATION."""
+    import re as _re
+
+    PROJECTS = """\nAI & PERSONAL PROJECTS:\nAI Trade Analysis Platform | Python, Flask, Claude API (Anthropic), Render | 2025\nLive app: https://stock-monitor-8ak6.onrender.com\n- Independently designed and deployed a live AI-powered stock monitoring application using natural language processing and machine learning algorithms to monitor stock prices and provide real-time trade insights to users\n- Application uses Claude API (Anthropic) for generative AI analysis, combining international trade flow data and financial market data; gained hands-on experience in AI/ML integration, prompt engineering, LLM API development, Flask backend, and Render cloud deployment\n\nJob Hunt Automation App | Python, Flask, Supabase, Claude API, JavaScript | 2025\nLive app: https://job-hunt-app-r7my.onrender.com\n- Built and deployed a full-stack AI-powered job-hunt automation platform that generates tailored ATS-optimised resumes and cover letters, scores job fit using AI ranking, and tracks applications via a Kanban board\n- Engineered a LinkedIn bookmarklet for bulk job import, Supabase database for persistence, and Claude API for intelligent document generation — independently shipped end-to-end as a working product"""
+
+    # Remove any AI projects block the AI generated (replace with ours)
+    resume_text = _re.sub(
+        r'\n(AI & PERSONAL PROJECTS|PERSONAL PROJECTS|AI PROJECTS):.*?(?=\nACADEMIC QUALIFICATION|\nEDUCATION)',
+        '', resume_text, flags=_re.DOTALL | _re.IGNORECASE
+    )
+
+    # Insert before ACADEMIC QUALIFICATION or EDUCATION section
+    for marker in ['ACADEMIC QUALIFICATION:', 'ACADEMIC QUALIFICATION', 'EDUCATION & CERTIFICATIONS:', 'EDUCATION:']:
+        idx = resume_text.find(marker)
+        if idx != -1:
+            resume_text = resume_text[:idx].rstrip() + PROJECTS + '\n\n' + resume_text[idx:]
+            return resume_text
+
+    # Fallback: append at end
+    return resume_text.rstrip() + PROJECTS
+
+
 @app.route("/api/tailor-resume", methods=["POST"])
 def tailor_resume():
     data = request.json
@@ -678,6 +701,7 @@ CRITICAL RULES:
 - Do NOT add any closing paragraphs, cover-letter-style text, or "overall I believe..." summaries after the ACADEMIC QUALIFICATION section"""
 
     result = call_claude(prompt, max_tokens=8192)
+    result = _inject_ai_projects(result)
     return jsonify({"result": result, "isAiRole": ai_role})
 
 @app.route("/api/cover-letter", methods=["POST"])
@@ -1656,6 +1680,7 @@ Certification: Scaled Agile Framework 6.0 Product Owner/Product Management
 RULES: Plain text only. ALL CAPS section headers. "- " bullets. Job titles on own line with NO slashes. Do NOT write "HEADER". Target 750-850 words. Weave in 12+ exact JD keyword phrases. Do NOT mention the target company name anywhere in the resume. Do NOT add closing paragraphs or cover-letter-style text after the education section."""
 
         resume_text = call_claude(resume_prompt, max_tokens=8192)
+        resume_text = _inject_ai_projects(resume_text)
 
         # Generate cover letter text via AI
         cover_prompt = f"""Write a professional 300-350 word cover letter for {P['name']} applying to {role_type or role} at {company}.
@@ -3026,6 +3051,7 @@ Line 5: [most relevant headline]
 Then: PROFESSIONAL SUMMARY (4 sentences, JD keywords) | SKILL SET (Data visualization tools: ... / Programming: ... / Others: ... / Certification: ...) | PROFESSIONAL EXPERIENCE (company+date bold line, job title on next line, bullets) | ACADEMIC QUALIFICATION
 ALL CAPS section headers. "- " bullets. No slashes on job titles. Target 750-850 words. Do NOT write HEADER. Do NOT mention the target company name anywhere in the resume."""
             resume_text = call_claude(resume_prompt)
+            resume_text = _inject_ai_projects(resume_text)
             api_call_count += 1
 
             if resume_text.startswith("Error:") or resume_text.startswith("API error:"):
