@@ -185,44 +185,56 @@ def get_supabase():
         return None
 
 
-def call_claude(prompt, max_tokens=4096):
-    """Call GROQ API (OpenAI-compatible) with Llama 3.3 70B model."""
+def call_claude(prompt, max_tokens=4096, model=None):
+    """Call GROQ API (OpenAI-compatible). Tries llama-3.3-70b-versatile first,
+    falls back to llama-3.1-8b-instant if unavailable."""
     if not GROQ_API_KEY:
         return "Error: GROQ_API_KEY not set. Add it in Render → Environment Variables."
-    try:
-        res = http_requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "max_tokens": max_tokens,
-                "temperature": 0.3,
-                "messages": [{"role": "user", "content": prompt}]
-            },
-            timeout=120
-        )
-        print(f"[Groq] HTTP {res.status_code}, response length: {len(res.text)}")
-        if res.status_code == 429:
-            return "Error: Groq rate limit hit — wait 60 seconds and try again"
-        if res.status_code != 200:
-            return f"Error: Groq HTTP {res.status_code}: {res.text[:300]}"
-        data = res.json()
-        if "error" in data:
-            err_msg = data["error"].get("message", str(data["error"]))
-            print(f"[Groq] API error: {err_msg}")
-            return f"API error: {err_msg}"
-        content = data["choices"][0]["message"]["content"]
-        finish = data["choices"][0].get("finish_reason", "unknown")
-        print(f"[Groq] finish_reason={finish}, content length={len(content)}")
-        if finish == "length":
-            print("[Groq] WARNING: response truncated — increase max_tokens or reduce prompt")
-        return content
-    except Exception as e:
-        print(f"[Groq] Exception: {e}")
-        return f"Error: {str(e)}"
+
+    MODELS = [model] if model else ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+
+    for m in MODELS:
+        try:
+            res = http_requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": m,
+                    "max_tokens": max_tokens,
+                    "temperature": 0.3,
+                    "messages": [{"role": "user", "content": prompt}]
+                },
+                timeout=120
+            )
+            print(f"[Groq] model={m} HTTP {res.status_code}, response length: {len(res.text)}")
+            if res.status_code == 429:
+                print(f"[Groq] Rate limit on {m}, trying next model...")
+                continue
+            if res.status_code != 200:
+                print(f"[Groq] HTTP {res.status_code} on {m}: {res.text[:300]}")
+                # Try next model on 4xx (model may be unavailable)
+                if res.status_code in (400, 404, 422):
+                    continue
+                return f"Error: Groq HTTP {res.status_code}: {res.text[:300]}"
+            data = res.json()
+            if "error" in data:
+                err_msg = data["error"].get("message", str(data["error"]))
+                print(f"[Groq] API error on {m}: {err_msg}")
+                continue  # try next model
+            content = data["choices"][0]["message"]["content"]
+            finish = data["choices"][0].get("finish_reason", "unknown")
+            print(f"[Groq] model={m} finish_reason={finish}, content length={len(content)}")
+            if finish == "length":
+                print("[Groq] WARNING: response truncated — increase max_tokens or reduce prompt")
+            return content
+        except Exception as e:
+            print(f"[Groq] Exception on {m}: {e}")
+            continue
+
+    return "Error: All Groq models failed — check API key and quota"
 
 PROFILE = {
     "name": "Amretha Karthikeyan",
@@ -548,9 +560,16 @@ def tailor_resume():
     data = request.json
     jd = data.get("jd", "")
     role_type = data.get("roleType", "Business Analyst")
+    matched_keywords = data.get("matchedKeywords", [])   # from rank_jobs scoring
     ai_role = is_ai_role(jd, role_type)
     P = get_active_profile()
     framing = build_product_framing(P)
+
+    # Build keyword line for prompt — use pre-extracted keywords if available
+    if matched_keywords:
+        kw_line = f"PRE-EXTRACTED JD KEYWORDS (already matched against candidate profile — use ALL of these verbatim in resume): {', '.join(matched_keywords)}"
+    else:
+        kw_line = "Extract keywords from the JD above and weave them throughout the resume."
 
     # Build structured profile text (easier for LLM than JSON)
     exp_text = ""
@@ -577,6 +596,7 @@ def tailor_resume():
 JOB DESCRIPTION:
 {jd}
 
+{kw_line}
 
 ===== CANDIDATE MASTER DATA (use ALL of this) =====
 Name: {P.get('name','')}
@@ -1552,6 +1572,13 @@ def generate_docs():
     company = data.get("company", "").strip()
     jd = data.get("jd", "").strip()
     role_type = data.get("roleType", "").strip()
+    matched_keywords = data.get("matchedKeywords", [])
+
+    kw_line = (
+        f"PRE-EXTRACTED JD KEYWORDS (use ALL verbatim throughout resume): {', '.join(matched_keywords)}"
+        if matched_keywords else
+        "Extract and use all keywords from the JD above throughout the resume."
+    )
 
     if not role or not company:
         return jsonify({"error": "role and company are required"}), 400
@@ -1577,6 +1604,8 @@ def generate_docs():
 
 JOB DESCRIPTION:
 {jd[:3000]}
+
+{kw_line}
 
 ===== CANDIDATE MASTER DATA =====
 Name: {P.get('name','')} | Phone: {P.get('mobile','')} | Email: {P.get('email','')}
@@ -1845,103 +1874,284 @@ def import_job():
 
 @app.route("/api/rank-jobs", methods=["POST"])
 def rank_jobs():
-    import json as _json, re as _re
+    """
+    JD keyword extraction + profile match scoring. No AI API — instant, never fails.
+    Also returns matched_keywords per job so resume generation can reuse them.
+
+    Scoring (max 10):
+      Keyword match score   0–4.5 pts  (weighted by category)
+      Role type match       0–2.0 pts
+      Company bonus/penalty ±2.0 pts
+      Product co signals    0–1.0 pt
+      WLB signals           0–0.5 pt
+      Singapore location    0–0.5 pt
+      Visa sponsorship      0–0.5 pt  (+override to 0 if blocked)
+    """
+    import re as _re
+
     data = request.json or {}
     jobs = data.get("jobs", [])
     if not jobs:
         return jsonify({"error": "No jobs provided"}), 400
 
-    P            = get_active_profile()
-    skills_str   = ", ".join(P.get("skills", [])[:12])
-    proj_url     = P.get("aiProjectUrl", "")
-    exp_lines    = ""
-    for exp in P.get("experience", []):
-        achvs = "; ".join(exp.get("achievements", [])[:2])
-        exp_lines += f"- {exp.get('company','')}: {exp.get('role','')} ({exp.get('period','')})"
-        if achvs:
-            exp_lines += f" — {achvs}"
-        exp_lines += "\n"
+    P = get_active_profile()
 
-    CANDIDATE_BLOCK = f"""CANDIDATE: {P.get('name','')} | {P.get('headline','')}
-Summary: {P.get('summary','')[:300]}
-Experience:
-{exp_lines}Skills: {skills_str}
-{'Project: ' + proj_url if proj_url else ''}
-Target: In-house PM/PO/BA roles at fintech/tech — NOT consulting"""
+    # ── Candidate profile text (for matching) ────────────────────────────
+    profile_text = " ".join([
+        P.get("summary", ""),
+        P.get("headline", ""),
+        " ".join(P.get("skills", [])),
+        " ".join(
+            b for exp in P.get("experience", [])
+            for b in exp.get("bullets", []) + exp.get("achievements", [])
+        ),
+        # hardcode known skills not always in profile
+        "agile safe scrum kanban jira confluence sql python tableau power bi api "
+        "roadmap backlog user stories sprint stakeholder kpi dashboard fintech "
+        "banking payments digital transformation product roadmap mvp uat change management "
+        "business analysis product owner product manager ba pm po saas b2b b2c "
+        "generative ai llm prompt engineering flask supabase render",
+    ]).lower()
 
-    SCORING_RULES = """Scoring 1-10:
-9-10: In-house product role, fintech/tech, Singapore, matches PO/BA background
-7-8: Good fit, minor gaps
-5-6: Possible, some gaps
-1-4: Weak fit
-+2 for: Grab,Sea,Shopee,Gojek,Airwallex,Stripe,Revolut,Wise,PropertyGuru,Carousell,GovTech,DBS Tech,OCBC
--2 for: KPMG,Deloitte,PwC,EY,Accenture,McKinsey,BCG,Bain,IBM,Wipro,Infosys,TCS,Cognizant (max 4/10)
-VISA OVERRIDE: if JD says no sponsorship/must be citizen or PR → score=0, label=❌ Weak Fit, priority=Skip
-Return ONLY a JSON array, no other text:
-[{"id":"<job_id>","score":<1-10>,"label":"🔥 Strong Match|✅ Good Fit|🟡 Possible|❌ Weak Fit","reason":"<2 sentences>","priority":"Apply Today|Apply This Week|Lower Priority|Skip"}]"""
+    # ── Keyword categories with weights ──────────────────────────────────
+    # (keyword, weight, category_label)
+    KEYWORD_DEFS = [
+        # Role keywords — weight 0.6
+        ("product owner",           0.6, "role"),
+        ("product manager",         0.6, "role"),
+        ("product management",      0.5, "role"),
+        ("business analyst",        0.6, "role"),
+        ("product lead",            0.5, "role"),
+        ("product operations",      0.5, "role"),
+        ("delivery manager",        0.4, "role"),
+        ("scrum master",            0.4, "role"),
+        ("agile coach",             0.4, "role"),
+        # Methodology keywords — weight 0.35
+        ("agile",                   0.35, "method"),
+        ("safe",                    0.35, "method"),
+        ("scrum",                   0.35, "method"),
+        ("kanban",                  0.35, "method"),
+        ("sprint",                  0.3,  "method"),
+        ("pi planning",             0.35, "method"),
+        # Tools — weight 0.3
+        ("jira",                    0.3,  "tool"),
+        ("confluence",              0.3,  "tool"),
+        ("sql",                     0.3,  "tool"),
+        ("python",                  0.3,  "tool"),
+        ("tableau",                 0.3,  "tool"),
+        ("power bi",                0.3,  "tool"),
+        ("figma",                   0.25, "tool"),
+        ("miro",                    0.25, "tool"),
+        ("excel",                   0.2,  "tool"),
+        ("notion",                  0.2,  "tool"),
+        ("amplitude",               0.3,  "tool"),
+        ("mixpanel",                0.3,  "tool"),
+        ("looker",                  0.3,  "tool"),
+        # Product skills — weight 0.35
+        ("product roadmap",         0.35, "skill"),
+        ("roadmap",                 0.3,  "skill"),
+        ("backlog",                 0.35, "skill"),
+        ("user stories",            0.35, "skill"),
+        ("stakeholder management",  0.35, "skill"),
+        ("stakeholder",             0.25, "skill"),
+        ("kpi",                     0.3,  "skill"),
+        ("dashboard",               0.25, "skill"),
+        ("data analysis",           0.3,  "skill"),
+        ("data-driven",             0.3,  "skill"),
+        ("go-to-market",            0.35, "skill"),
+        ("gtm",                     0.3,  "skill"),
+        ("mvp",                     0.3,  "skill"),
+        ("uat",                     0.3,  "skill"),
+        ("change management",       0.3,  "skill"),
+        ("product vision",          0.35, "skill"),
+        ("discovery",               0.3,  "skill"),
+        ("a/b testing",             0.3,  "skill"),
+        ("experimentation",         0.3,  "skill"),
+        ("api",                     0.25, "skill"),
+        ("api integration",         0.3,  "skill"),
+        ("requirements",            0.25, "skill"),
+        ("business case",           0.25, "skill"),
+        ("seo",                     0.3,  "skill"),
+        ("cro",                     0.3,  "skill"),
+        ("ux",                      0.25, "skill"),
+        ("user research",           0.3,  "skill"),
+        ("customer journey",        0.3,  "skill"),
+        # Domain — weight 0.3
+        ("fintech",                 0.35, "domain"),
+        ("banking",                 0.3,  "domain"),
+        ("payments",                0.3,  "domain"),
+        ("digital transformation",  0.3,  "domain"),
+        ("saas",                    0.3,  "domain"),
+        ("b2b",                     0.25, "domain"),
+        ("b2c",                     0.25, "domain"),
+        ("platform",                0.2,  "domain"),
+        ("financial services",      0.3,  "domain"),
+        ("e-commerce",              0.25, "domain"),
+        ("marketplace",             0.25, "domain"),
+        # AI/ML — weight 0.4
+        ("generative ai",           0.4,  "ai"),
+        ("llm",                     0.4,  "ai"),
+        ("machine learning",        0.35, "ai"),
+        ("ai",                      0.3,  "ai"),
+        ("prompt engineering",      0.4,  "ai"),
+        ("nlp",                     0.35, "ai"),
+    ]
 
-    import time as _time
-    # Groq free tier: 30 req/min for llama-3.3-70b
-    # Use batch of 15 jobs, 2s delay between batches = safe at any volume
-    BATCH_SIZE   = 8
-    all_rankings = []
-    batch_num    = 0
+    BONUS_COMPANIES = [
+        "grab", "sea", "shopee", "gojek", "airwallex", "stripe", "revolut",
+        "wise", "transferwise", "propertyguru", "carousell", "govtech",
+        "dbs", "ocbc", "uob", "singlife", "nium", "rapyd", "aspire",
+        "lazada", "bytedance", "tiktok", "foodpanda", "delivery hero",
+        "google", "meta", "netflix", "amazon", "apple", "microsoft",
+    ]
+    PENALTY_COMPANIES = [
+        "kpmg", "deloitte", "pwc", "ey ", "ernst", "accenture", "mckinsey",
+        "bcg", "bain", "ibm", "wipro", "infosys", "tcs", "cognizant",
+        "capgemini", "ncs ", "dxc", "fujitsu",
+    ]
+    VISA_BLOCK_PHRASES = [
+        "no sponsorship", "citizen or pr", "citizen/pr", "pr only", "citizens only",
+        "must be a citizen", "must be singapore", "singaporean only",
+        "ep not provided", "no ep", "no work pass", "own ep",
+        "singapore citizens and pr", "singapore citizen or pr",
+        "must hold", "only singaporean",
+    ]
+    VISA_OK_PHRASES = [
+        "visa sponsorship", "ep sponsorship", "work pass", "s pass", "ep provided",
+        "sponsorship available", "open to ep", "employment pass provided",
+        "relocation support", "open to all nationalities",
+    ]
+    WLB_SIGNALS = [
+        "work life balance", "work-life", "flexible", "hybrid", "remote",
+        "well-being", "wellness", "benefits", "learning & development",
+        "flat structure", "transparent", "autonomy", "ownership culture",
+    ]
+    PRODUCT_CO_SIGNALS = [
+        "product-led", "product company", "in-house", "saas", "platform team",
+        "b2b", "b2c", "consumer product", "marketplace", "fintech",
+        "proptech", "healthtech", "edtech", "our product", "we build",
+        "product organisation", "product org",
+    ]
+    SG_SIGNALS = [
+        "singapore", " sg ", "sgd", "raffles", "tanjong pagar",
+        "one-north", "mapletree", "mbfc", "orchard", "marina bay",
+    ]
 
-    for batch_start in range(0, len(jobs), BATCH_SIZE):
-        batch = jobs[batch_start : batch_start + BATCH_SIZE]
-        batch_num += 1
+    rankings = []
 
-        # Rate limit: wait 3s between batches (= max 20 req/min, well under 30)
-        if batch_num > 1:
-            print(f"[rank_jobs] Waiting 3s to respect Groq rate limit...")
-            _time.sleep(3)
+    for j in jobs:
+        jd_raw  = (j.get("jd") or "")
+        role    = (j.get("role") or "").lower()
+        company = (j.get("company") or "").lower()
+        jd      = jd_raw.lower()
+        combined = jd + " " + role + " " + company
 
-        job_block = ""
-        for j in batch:
-            jd = (j.get("jd") or "")[:200]
-            job_block += f"ID:{j.get('id')} | {j.get('role','?')} @ {j.get('company','?')}\nJD: {jd if jd else 'None'}\n---\n"
+        score   = 0.0
+        reasons = []
+        matched_keywords = []   # reused by resume generation
 
-        prompt = f"""{CANDIDATE_BLOCK}
-
-JOBS:
-{job_block}
-{SCORING_RULES}"""
-
-        print(f"[rank_jobs] Batch {batch_num}/{(len(jobs)+BATCH_SIZE-1)//BATCH_SIZE}: {len(batch)} jobs, prompt ~{len(prompt)} chars")
-        result = call_claude(prompt, max_tokens=3000)
-        print(f"[rank_jobs] Raw response: {result[:200]}")
-
-        if not result or result.startswith("Error:") or result.startswith("API error:"):
-            if "rate limit" in (result or "").lower():
-                # Hit rate limit mid-way — wait 65s and retry this batch once
-                print("[rank_jobs] Rate limit hit — waiting 65s then retrying...")
-                _time.sleep(65)
-                result = call_claude(prompt, max_tokens=3000)
-                if not result or result.startswith("Error:"):
-                    if all_rankings:
-                        break  # return what we have
-                    return jsonify({"error": f"AI API error: {result}"}), 500
-            else:
-                if all_rankings:
-                    break
-                return jsonify({"error": f"AI API error: {result}"}), 500
-
-        try:
-            clean = _re.sub(r"```json|```", "", result).strip()
-            m     = _re.search(r"(\[.*\])", clean, _re.DOTALL)
-            if m:
-                clean = m.group(1)
-            batch_rankings = _json.loads(clean)
-            all_rankings.extend(batch_rankings)
-            print(f"[rank_jobs] Batch {batch_num} parsed OK: {len(batch_rankings)} rankings")
-        except Exception as e:
-            print(f"[rank_jobs] Parse error batch {batch_num}: {e}\nRaw: {result[:300]}")
+        # ── 1. Visa hard override ─────────────────────────────────────────
+        visa_blocked = any(p in combined for p in VISA_BLOCK_PHRASES)
+        visa_ok      = any(p in combined for p in VISA_OK_PHRASES)
+        if visa_blocked and not visa_ok:
+            rankings.append({
+                "id":               j.get("id"),
+                "score":            0,
+                "label":            "❌ Weak Fit",
+                "priority":         "Skip",
+                "reason":           "No visa sponsorship — requires Singapore Citizen/PR only.",
+                "matched_keywords": [],
+            })
             continue
 
-    if not all_rankings:
-        return jsonify({"error": "Could not parse any rankings from AI"}), 500
+        # ── 2. Extract JD keywords & match against profile ───────────────
+        # For each keyword in our dictionary: check if it appears in JD AND in profile
+        jd_present      = []  # keywords found in JD
+        profile_matched = []  # keywords found in both JD + profile
+        kw_score        = 0.0
 
-    return jsonify({"rankings": all_rankings})
+        for kw, weight, cat in KEYWORD_DEFS:
+            if kw in jd or kw in combined:
+                jd_present.append((kw, weight, cat))
+                if kw in profile_text:
+                    profile_matched.append((kw, weight, cat))
+                    kw_score += weight
+
+        kw_score = min(4.5, kw_score)
+        score += kw_score
+
+        # Top matched keywords for display + resume reuse
+        matched_keywords = [kw for kw, _, _ in sorted(profile_matched, key=lambda x: -x[1])[:15]]
+        jd_only_keywords = [kw for kw, _, _ in jd_present if kw not in matched_keywords][:8]
+
+        if profile_matched:
+            top5 = ", ".join(matched_keywords[:5])
+            reasons.append(f"Profile matches {len(profile_matched)} JD keywords: {top5}")
+
+        # ── 3. Role type match (0–2 pts) ─────────────────────────────────
+        role_kws = [kw for kw, _, cat in profile_matched if cat == "role"]
+        jd_role_kws = [kw for kw, _, cat in jd_present if cat == "role"]
+        role_score = min(2.0, len(jd_role_kws) * 0.7)
+        score += role_score
+        if jd_role_kws:
+            reasons.append(f"Role: {jd_role_kws[0]}")
+
+        # ── 4. Company bonus / penalty ────────────────────────────────────
+        co_bonus   = any(b in company for b in BONUS_COMPANIES)
+        co_penalty = any(p in company for p in PENALTY_COMPANIES)
+        if co_bonus:
+            score += 2
+            reasons.append(f"Target company ✓")
+        elif co_penalty:
+            score = min(score, 4.0)
+            reasons.append("Consulting firm — capped")
+
+        # ── 5. Product company signals (+1) ──────────────────────────────
+        if any(s in combined for s in PRODUCT_CO_SIGNALS):
+            score += 1
+            reasons.append("Product/in-house company")
+
+        # ── 6. WLB signals (+0.5) ────────────────────────────────────────
+        if any(s in combined for s in WLB_SIGNALS):
+            score += 0.5
+            reasons.append("Good WLB signals")
+
+        # ── 7. Singapore location (+0.5) ─────────────────────────────────
+        if any(s in combined for s in SG_SIGNALS):
+            score += 0.5
+
+        # ── 8. Visa sponsorship offered (+0.5) ───────────────────────────
+        if visa_ok:
+            score += 0.5
+            reasons.append("Visa/EP sponsorship available ✓")
+
+        score = round(min(10.0, max(1.0, score)), 1)
+
+        # ── Label + priority ─────────────────────────────────────────────
+        if score >= 8:
+            label, priority = "🔥 Strong Match", "Apply Today"
+        elif score >= 6.5:
+            label, priority = "✅ Good Fit",     "Apply This Week"
+        elif score >= 4.5:
+            label, priority = "🟡 Possible",     "Lower Priority"
+        else:
+            label, priority = "❌ Weak Fit",     "Skip"
+
+        reason_str = ". ".join(reasons[:3]) if reasons else "Based on role and keyword analysis."
+
+        rankings.append({
+            "id":               j.get("id"),
+            "score":            score,
+            "label":            label,
+            "priority":         priority,
+            "reason":           reason_str,
+            "matched_keywords": matched_keywords,      # for resume generation
+            "jd_only_keywords": jd_only_keywords,      # keywords in JD not yet in profile
+        })
+
+    print(f"[rank_jobs] Scored {len(rankings)} jobs (keyword match, no AI)")
+    return jsonify({"rankings": rankings})
+
 
 @app.route("/api/fetch-jd", methods=["POST"])
 def fetch_jd():

@@ -1722,6 +1722,8 @@ async function openRankModal() {
  job.aiLabel = r.label;
  job.aiReason = r.reason;
  job.aiPriority = r.priority;
+ if (r.matched_keywords && r.matched_keywords.length) job.matchedKeywords = r.matched_keywords;
+ if (r.jd_only_keywords && r.jd_only_keywords.length) job.jdOnlyKeywords = r.jd_only_keywords;
  }
  });
  saveJobs(allJobs);
@@ -2594,7 +2596,7 @@ function renderRow(j) {
  ${j.companyLogo ? `<img src="${j.companyLogo}" style="width:28px;height:28px;border-radius:4px;object-fit:contain;flex-shrink:0;background:#f3f4f6;" onerror="this.style.display='none'">` : ''}
  <div>
  <div class="job-row-company">${j.isDemo ? ' ' : ''}${typeof j.company === 'object' ? (j.company.text || j.company.name || '') : (j.company || '')}</div>
- ${j.roleType ? `<div style="font-size:10px;color:var(--blue);font-weight:600;">${typeof j.roleType === 'object' ? (j.roleType.text || '') : j.roleType}</div>` : ''}
+ 
  </div>
  </div>
  <div>
@@ -2963,7 +2965,8 @@ async function generateKitDocs(j) {
  const isAI = j.jd ? /(ai|machine learning|llm|generative|artificial intelligence|claude|gpt|openai)/i.test(j.jd) : false;
  try {
  const data = await callBackend('/api/generate-docs', {
- role: j.role, company: j.company, jd: j.jd || '', roleType: j.roleType || '', isAI
+ role: j.role, company: j.company, jd: j.jd || '', roleType: j.roleType || '', isAI,
+ matchedKeywords: j.matchedKeywords || []
  });
  if (data.error) throw new Error(data.error);
  // Save to job in localStorage + Supabase
@@ -3431,7 +3434,7 @@ async function generateDiscoveryKit(idx) {
   const [resumeRes, coverRes] = await Promise.all([
    fetch('/api/tailor-resume', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ jd, roleType })
+    body: JSON.stringify({ jd, roleType, matchedKeywords: currentDiscJob?.matchedKeywords || [] })
    }).then(r => r.json()),
    fetch('/api/cover-letter', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
