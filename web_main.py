@@ -1277,7 +1277,7 @@ def upsert_jobs():
                 "dateApplied":      j.get("dateApplied", ""),
                 "datePosted":       j.get("datePosted", ""),
                 "companyLogo":      j.get("companyLogo", ""),
-                "aiScore":          j.get("aiScore"),
+                "aiScore":          float(j["aiScore"]) if j.get("aiScore") is not None else None,
                 "aiLabel":          j.get("aiLabel", ""),
                 "aiReason":         j.get("aiReason", ""),
                 "aiPriority":       j.get("aiPriority", ""),
