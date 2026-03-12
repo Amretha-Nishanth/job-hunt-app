@@ -1,4 +1,26 @@
 <!DOCTYPE html>
+<!--
+  ============================================================
+  AI CODING INSTRUCTION — READ BEFORE MAKING ANY CHANGES
+  ============================================================
+  STORAGE RULE: Supabase is the source of truth for ALL job data.
+  - NEVER store job data only in localStorage.
+  - localStorage is used ONLY as a temporary cache/fallback when
+    Supabase is unreachable (network error). It must always be
+    synced back to Supabase at next opportunity.
+  - All job fields (aiScore, aiLabel, aiReason, aiPriority,
+    matchedKeywords, jdOnlyKeywords, notes, status, location,
+    salary, datePosted, companyLogo, checklist, resume_variant,
+    resume_filename, cover_filename, resume_generated_at) MUST
+    be persisted to Supabase via /api/jobs/upsert.
+  - When adding new job fields: add to Supabase via migration SQL,
+    add to clean() whitelist in web_main.py, add to merge in
+    loadJobsFromSupabase(), and strip only binary blobs from
+    lightweight sync payloads.
+  - saveJobs() must ALWAYS await syncJobsToSupabase() — never
+    fire-and-forget for critical data saves.
+  ============================================================
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1726,8 +1748,30 @@ async function openRankModal() {
  if (r.jd_only_keywords && r.jd_only_keywords.length) job.jdOnlyKeywords = r.jd_only_keywords;
  }
  });
- saveJobs(allJobs);
+ // Save to localStorage immediately
+ localStorage.setItem('jobs', JSON.stringify(allJobs));
+ localStorage.setItem('jobs_initialized', 'true');
  renderKanban();
+ // Explicitly await Supabase sync so scores persist across refresh
+ const realToSync = allJobs.filter(j => !j.isDemo).map(j => {
+   const { resume_docx_b64, cover_docx_b64, ...rest } = j;
+   return rest;
+ });
+ try {
+   const syncResp = await fetch('/api/jobs/upsert', {
+     method: 'POST',
+     headers: {'Content-Type': 'application/json'},
+     body: JSON.stringify({ jobs: realToSync })
+   });
+   const syncData = await syncResp.json();
+   if (syncData.ok) {
+     toast(`Rankings saved — ${syncData.count} jobs updated`, 'success');
+   } else {
+     toast('Rankings saved locally (cloud sync failed: ' + (syncData.error||'unknown') + ')', 'warning');
+   }
+ } catch(e) {
+   toast('Rankings saved locally only (network error)', 'warning');
+ }
  // Build lookup map
  const jobMap = {};
  realJobs.forEach(j => { jobMap[j.id] = j; });
@@ -2304,14 +2348,23 @@ function prepareInterviewForJob(id) {
 const COLS = ["saved","applied","screen","interview","offer","rejected"];
 const COL_LABELS = { saved:" Saved", applied:" Applied", screen:" Recruiter Screen", interview:" Interviewing", offer:" Offer", rejected:" Rejected" };
 const COL_COLORS = { saved:"#6b7280", applied:"#3b82f6", screen:"#f59e0b", interview:"#8b5cf6", offer:"#10b981", rejected:"#ef4444" };
-// STORAGE localStorage + Supabase sync 
-const SUPABASE_ENABLED = true; // will silently fall back if not configured
+// STORAGE — Supabase is source of truth. localStorage = cache/fallback only.
+// See AI CODING INSTRUCTION at top of file.
+const SUPABASE_ENABLED = true;
 function getJobs() { return JSON.parse(localStorage.getItem("jobs") || "[]"); }
-function saveJobs(jobs) {
+async function saveJobs(jobs) {
+ // 1. Write to localStorage immediately as cache (so UI is instant)
  localStorage.setItem("jobs", JSON.stringify(jobs));
  localStorage.setItem("jobs_initialized", "true");
- // Fire-and-forget sync to Supabase
- syncJobsToSupabase(jobs);
+ // 2. Always await Supabase — this is the real save
+ await syncJobsToSupabase(jobs);
+}
+// Synchronous version for drag-drop / status changes that can't easily await
+// Still syncs to Supabase, just fire-and-forget — only use for non-critical UI updates
+function saveJobsSync(jobs) {
+ localStorage.setItem("jobs", JSON.stringify(jobs));
+ localStorage.setItem("jobs_initialized", "true");
+ syncJobsToSupabase(jobs); // fire-and-forget acceptable for drag-drop
 }
 async function syncJobsToSupabase(jobs) {
  try {
@@ -2393,12 +2446,19 @@ async function loadJobsFromSupabase() {
  aiLabel: sj.aiLabel || lj.aiLabel || '',
  aiReason: sj.aiReason || lj.aiReason || '',
  aiPriority: sj.aiPriority || lj.aiPriority || '',
+ matchedKeywords: (sj.matchedKeywords && sj.matchedKeywords.length) ? sj.matchedKeywords : (lj.matchedKeywords || []),
+ jdOnlyKeywords: (sj.jdOnlyKeywords && sj.jdOnlyKeywords.length) ? sj.jdOnlyKeywords : (lj.jdOnlyKeywords || []),
+ notes: sj.notes || lj.notes || '',
+ checklist: sj.checklist || lj.checklist || {},
+ location: sj.location || lj.location || '',
+ salary: sj.salary || lj.salary || '',
+ datePosted: sj.datePosted || lj.datePosted || '',
+ companyLogo: sj.companyLogo || lj.companyLogo || '',
  resume_docx_b64: sj.resume_docx_b64 || lj.resume_docx_b64 || '',
  cover_docx_b64: sj.cover_docx_b64 || lj.cover_docx_b64 || '',
  resume_variant: sj.resume_variant || lj.resume_variant || '',
  resume_filename: sj.resume_filename || lj.resume_filename || '',
  cover_filename: sj.cover_filename || lj.cover_filename || '',
- matchedKeywords: sj.matchedKeywords || lj.matchedKeywords || [],
  };
  });
  // IMPORTANT: Also keep local-only jobs (not yet in Supabase)
@@ -2626,7 +2686,7 @@ function renderRow(j) {
 function moveJob(id, newCol) {
  const jobs = getJobs();
  const j = jobs.find(j =>String(j.id) === String(id));
- if (j) { j.status = newCol; saveJobs(jobs); renderKanban(); updateStats(); toast(`Moved to ${COL_LABELS[newCol].replace(/[^\w\s]/g,"").trim()}`, "success"); }
+ if (j) { j.status = newCol; saveJobsSync(jobs); renderKanban(); updateStats(); toast(`Moved to ${COL_LABELS[newCol].replace(/[^\w\s]/g,"").trim()}`, "success"); }
 }
 // FETCH JD FOR A SINGLE JOB 
 async function fetchJDForJob(id) {

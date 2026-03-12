@@ -1,6 +1,22 @@
 import os
 import json
 from flask import Flask, request, jsonify, render_template, redirect
+# ============================================================
+# AI CODING INSTRUCTION — READ BEFORE MAKING ANY CHANGES
+# ============================================================
+# STORAGE RULE: Supabase is the ONLY source of truth for job data.
+# - NEVER store job data only in localStorage.
+# - All job fields must be persisted via /api/jobs/upsert.
+# - When adding new job fields:
+#     1. Add column to Supabase (ALTER TABLE jobs ADD COLUMN ...)
+#     2. Add to clean() whitelist in upsert_jobs()
+#     3. Add to merge logic in loadJobsFromSupabase() in index.html
+#     4. Add to AI instruction comment in index.html
+# - The clean() function in upsert_jobs() is the whitelist of
+#   all fields that get persisted — keep it complete.
+# - Binary blobs (resume_docx_b64, cover_docx_b64) are stripped
+#   from lightweight sync payloads but saved separately.
+# ============================================================
 from flask_cors import CORS
 from dotenv import load_dotenv
 import requests as http_requests
@@ -1257,19 +1273,25 @@ def upsert_jobs():
                 "roleType":         j.get("roleType", ""),
                 "source":           j.get("source", ""),
                 "salary":           j.get("salary", ""),
+                "location":         j.get("location", ""),
                 "dateApplied":      j.get("dateApplied", ""),
+                "datePosted":       j.get("datePosted", ""),
+                "companyLogo":      j.get("companyLogo", ""),
                 "aiScore":          j.get("aiScore"),
                 "aiLabel":          j.get("aiLabel", ""),
                 "aiReason":         j.get("aiReason", ""),
                 "aiPriority":       j.get("aiPriority", ""),
+                "matchedKeywords":  j.get("matchedKeywords") or [],
+                "jdOnlyKeywords":   j.get("jdOnlyKeywords") or [],
                 "notes":            j.get("notes", ""),
+                "checklist":        j.get("checklist") or {},
                 "resume_variant":   j.get("resume_variant", ""),
                 "resume_filename":  j.get("resume_filename", ""),
                 "cover_filename":   j.get("cover_filename", ""),
                 "resume_generated_at": j.get("resume_generated_at", ""),
             }
-            # Only include large binary fields if they're explicitly present & non-empty
-            # This prevents the frontend lightweight sync from clearing doc data
+            # Only include large binary fields if explicitly present & non-empty
+            # Prevents lightweight sync from clearing existing docs
             if j.get("resume_docx_b64"):
                 row["resume_docx_b64"] = j["resume_docx_b64"][:500000]
             if j.get("cover_docx_b64"):
