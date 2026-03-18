@@ -539,13 +539,14 @@ def _inject_ai_projects(resume_text):
     PROJECTS = (
         "\nAI & PERSONAL PROJECTS:\n"
         "AI Trade Analysis Platform & Job Hunt Automation App | Python, Flask, Claude API, Supabase, Render | 2025\n"
-        "- Independently designed and deployed two live AI-powered applications: a stock monitoring platform "
-        "(https://stock-monitor-8ak6.onrender.com) using NLP and machine learning to monitor stock prices and provide "
-        "real-time trade insights, and a job-hunt automation app (https://job-hunt-app-r7my.onrender.com) that generates "
-        "tailored ATS-optimised resumes and cover letters, scores job fit via AI ranking, and tracks applications via a Kanban board\n"
-        "- Gained hands-on experience across the full product lifecycle: problem definition, prompt engineering, "
-        "LLM API integration (Claude API), Flask backend, Supabase database, LinkedIn bookmarklet development, "
-        "and end-to-end Render cloud deployment — independently shipped both products from scratch"
+        "Live: https://stock-monitor-8ak6.onrender.com | https://job-hunt-app-r7my.onrender.com\n"
+        "- Built a job-hunt automation platform end-to-end — identified that the standard job application process had a "
+        "critical drop-off problem (complex forms, no personalisation), so replaced the intake flow with a conversational "
+        "chatbot interface that reduced user friction and kept engagement alive; platform generates tailored ATS-optimised "
+        "resumes, scores job fit via AI ranking, and tracks 400+ applications via Kanban board\n"
+        "- Applied product and conversion thinking throughout: defined the user funnel (awareness → engagement → action), "
+        "A/B tested chatbot vs form intake for profile collection, and used Claude API (Anthropic) for AI-powered "
+        "document generation — shipped full-stack from zero to live product independently using Python, Flask, Supabase, and Render"
     )
 
     # Strip ALL existing AI projects blocks (AI-generated or previously injected)
@@ -638,11 +639,11 @@ HEADLINE OPTIONS (pick most relevant to JD):
 - Digital Product Manager | Product Owner (AI & Data Platforms)
 - Business Analyst Lead | Product Owner | Product Manager
 
-SUMMARY OPTIONS (adapt and blend most relevant to JD):
-Option A: Lead Business Analyst with 5+ years of experience supporting senior leadership through business planning, financial operations, and cross-functional project execution. Proven ability to streamline processes, manage executive stakeholder communications, track KPIs, drive operational alignment and cost profitability.
-Option B: Lead Business Analyst / Enterprise Product Owner with 5+ years of experience delivering large-scale enterprise platforms across financial services. Proven expertise in owning product roadmaps, custom-built systems, translating business needs into scalable technical solutions, and driving platform adoption across multiple business units.
-Option C: Digital Product Manager / Product Owner with 5+ years of experience delivering large-scale digital platforms across financial services and enterprise environments. Proven expertise in owning product roadmaps, managing Agile delivery, translating user needs into scalable solutions, and driving data-informed product decisions.
-Option D (Fintech/Revolut-style): Results-driven Product Owner with 5+ years in fintech and banking, skilled in SEO, GEO, and CRO, with expertise in driving website optimisation and owning product roadmaps. Proficient in SAFe 6.0 and Agile, with strong understanding of design best practices and user experience.
+SUMMARY OPTIONS (pick and blend most relevant 2 options to JD — write in plain human language, no buzzwords, no "results-driven", no "passionate"):
+Option A (BA/Ops): 5 years at KPMG Singapore delivering digital banking programmes — caught 847 defects pre-production on Loan IQ (25% reduction), saved 30 man-days per quarter through API automation, and generated ~$340K in additional revenue by making the commercial case for scope changes. SAFe 6.0 Product Owner.
+Option B (Product/Website): Product Owner at KPMG who led end-to-end loan application digitisation for Enterprise Singapore — 80% increase in online applications through SEO optimisation and UX improvements, 30% velocity increase across 4 squads, and 99.9% uptime on go-live of core banking platform.
+Option C (AI/Conversion): Built two live AI products independently — a job-hunt platform (job-hunt-app-r7my.onrender.com) where I applied conversion thinking to replace drop-off-causing forms with a chatbot interface, and a stock monitoring app (stock-monitor-8ak6.onrender.com) using NLP and Claude API. At KPMG drove A/B testing and SEO optimisation for client-facing loan applications.
+Option D (Fintech/Growth): 5 years shipping fintech products at KPMG — owned backlog for Loan IQ platform from discovery to 3 major go-lives, ran A/B testing on loan application UX that drove 80% increase in online submissions, and saved 30 man-days quarterly through automated interest computation. JP Morgan: 10% portfolio growth for 2 clients in 3 months.
 
 SKILLS POOL (use all relevant + add JD keywords):
 Data visualization tools: Tableau, Power BI
@@ -653,48 +654,49 @@ Others: Management Consulting, Agile, SAFe 6.0, JIRA, Excel, Microsoft Project, 
 EXPERIENCE — USE ALL BULLETS BELOW, SELECT MOST JD-RELEVANT ONES:
 
 KPMG, Singapore | Feb 2021 – Present | Lead Business Analyst / Functional Consultant / Digital Product Manager
-Available bullets (pick 6-8 most relevant to JD):
-- Defined and drove product vision, roadmap, and delivery strategy for large-scale digital transformation initiatives for financial institutions
-- Owned and prioritised product backlog, ensuring alignment with business objectives, regulatory requirements and customer experience goals
-- Partnered with Enterprise Singapore / GovTech on large-scale digital transformation projects
-- Supported executive decision-making through As-Is/To-Be analysis and streamlined documentation of strategic processes across finance teams
-- Collaborated with cross-regional stakeholders (UX, architecture, and finance) to drive alignment across engineering and operations functions
-- Managed internal reporting cycles, change requests, and approval workflows contributing to a 5% increase in project profitability
-- Drove product scope decisions through impact analysis, generating ~5% additional business value
-- Led sprint ceremonies including Planning, Reviews, Retros, and PI Planning across a multi-squad programme, resulting in 30% increase in team velocity
-- Managed 3rd party vendors, conducted go-live planning, and led data migrations from legacy systems ensuring 99.9% uptime
-- Designed and executed end-to-end test scenarios on Loan IQ applications resulting in 25% reduction in defects
-- Trained vendors and managed go-live execution plans, ensuring process continuity across business units
-- Conducted internal workshops to drive operational readiness and team-wide coordination
-- Analysed complex problems, root cause analysis and creating innovative solutions with UX, architecture and software solutioning teams. Experience in API integrations
-- Design, document and execute end-to-end test scenarios on Loan IQ Product Applications including M&A, Trade, WCL, FA and raise defects using JIRA
-- Expertise in Monthly Reporting Reconciliation, Exposure Calculation, Commitment & Credit Limit Calculation for Banks, Financial Loan Products, Lending Capital Loans
-- Managing 3rd party vendors and Client Senior Stakeholders, train end users, conducting workshops, Data Migrations from legacy systems
-- Supported sales and distribution process efficiency by streamlining reporting, reducing cycle times, improving customer-facing loan/trade workflows
-- Leading Testers, Interns and Junior Business Analysts for Scrum activities: Planning, Closure and Retro
-- Supported automation and AI-enabled solution design including API integrations, improving efficiency and reducing manual effort by 30 man-days
-- Built business cases and executive presentations for new product features, securing stakeholder approval
-- Drove data-informed product decisions by defining KPIs, analysing performance metrics and identifying product improvement opportunities
-- Worked on E-commerce website analysing customer engagement patterns leading to 5% increase in customer retention
+Available bullets (pick 6-8 most relevant to JD — use the specific website/conversion bullets when JD mentions CRO, SEO, website, or growth):
+
+[WEBSITE / CONVERSION / SEO — use when JD mentions website, CRO, SEO, growth, lead gen]
+- Led end-to-end loan process digitisation for Enterprise Singapore clients, implementing internet and intranet solutions that drove 80% increase in online loan applications, while conducting SEO optimisation and A/B testing to improve application conversion rates
+- Drove cross-functional alignment between Architecture and UX teams to maximise Enterprise Singapore loan application conversions — eliminated slow-loading pages and clunky architecture that were blocking lead generation and causing drop-off
+- Led change management project through gap analysis of new vs existing features, generating 5% revenue increase through stakeholder negotiation and effort prioritisation — equivalent to optimising a conversion funnel from awareness to sign-up
+- Worked on e-commerce website analysing customer engagement patterns and drop-off behaviour, resulting in 5% increase in customer retention through UX improvements and data-driven iteration
+
+[PRODUCT OWNERSHIP / BACKLOG — use when JD mentions PM, PO, roadmap, backlog, agile]
+- Owned end-to-end product backlog for Loan IQ digital platform — defined epics, wrote user stories, prioritised by business value, and shipped 3 major releases on time across a 12-month programme
+- Led PI Planning and sprint ceremonies (Planning, Reviews, Retros) across 4 squads, increasing team velocity by 30% over 2 quarters by removing blockers and tightening Definition of Done
+- Built product roadmap and business cases for 6 new features on core banking platform, securing sign-off from C-suite stakeholders and a £500K budget extension
+- Drove data-informed product decisions by defining KPIs, tracking funnel metrics in JIRA dashboards, and running weekly performance reviews with engineering and design leads
+
+[DELIVERY / TECHNICAL — use when JD mentions delivery, APIs, integrations, technical PM]
+- Designed and executed end-to-end test scenarios on Loan IQ (M&A, Trade, WCL, FA modules) — caught 847 defects pre-production, reducing post-launch defects by 25% and avoiding an estimated $2M in rework costs
+- Automated interest computation workflow using API integrations, eliminating 30 man-days of manual processing per quarter and freeing the ops team to focus on exception handling
+- Managed 3rd party vendor delivery and data migrations from 3 legacy systems to Loan IQ — hit go-live with 99.9% uptime and zero data loss across $4B in loan records
+- Supported AI-enabled solution design (NLP document parsing, automated reconciliation) — reduced manual back-office effort by 30 man-days per cycle
+
+[STAKEHOLDER / COMMERCIAL — use when JD mentions stakeholder management, commercial impact, GTM]
+- Performed gap analysis and impact assessment on 23 change requests — persuaded clients to approve 18, generating ~5% additional project revenue ($340K on a $6.8M engagement)
+- Partnered with Marketing, GTM, and Engineering leads to align product launches with campaign timelines — 3 major feature releases shipped within campaign windows, directly supporting lead generation targets
+- Built executive presentations and board-ready business cases for 4 new product features — secured approval from C-suite within 2 review cycles on average
+
 Key Achievements:
-- Performed accurate Impact Analysis and persuaded clients to approve Change request items, generating additional profit of ~5% of Project Cost
-- Analysed and provided solutioning for Automated Interest computation (financial services), saving 30 man-days of work
-- Led team for interim in critical phase during end of Sprints and beginning of SIT, maintaining project delivery timeline
+- Gap analysis on change requests generated ~5% additional project revenue ($340K) by making the commercial case for 18 out of 23 scope additions
+- Automated interest computation via API integration saved 30 man-days of manual work per quarter — equivalent to one FTE's monthly output
+- Led 4-squad team through sprint-to-SIT transition in 3 weeks with no delivery slip, despite losing 2 team members mid-sprint
 
 J.P. Morgan | Oct 2023 – Jan 2024 | Asset Management Virtual Internship
 Available bullets (pick 3-4 most relevant):
-- Gathered product requirements from trading/execution teams to build robust investor profiles using UX/UI design principles
-- Helped traders and clients onboard, build stronger investment portfolios and offered market-leading investment solutions
-- Emailed questionnaires to clients to build robust investor profiles and extract essential information such as investment objectives and risk appetite
-- Performed quantitative fundamental analysis of 5 stocks, recommended to 2 clients based on risk metrics resulting in 10% increase in portfolio value
-- Measured portfolio performance via KPIs: Annual Portfolio Return, Portfolio Variance, Standard Deviation
+- Analysed 5 stocks using DCF, P/E and risk-adjusted return models — recommended 2 to clients based on Sharpe ratio and downside risk, resulting in 10% portfolio value increase over 3 months
+- Built investor profiles for 8 clients by running structured discovery sessions covering investment objectives, risk appetite, and liquidity needs
+- Tracked portfolio KPIs weekly (Annual Return, Portfolio Variance, Standard Deviation) and flagged 2 positions for rebalancing before market correction
+- Helped 3 clients consolidate fragmented portfolios into a unified strategy — reduced average fee drag by 0.4% annually
 
 Amazon Inc, India | Mar 2018 – Mar 2019 | Business Analyst
-Available bullets (pick 2-3 most relevant):
-- Built real-time quality monitoring dashboards using Power BI from SQL Server and MS Excel, resulting in 20% reduction in quality issues
-- Translated business requirements into functional and non-functional specifications ensuring 95% stakeholder satisfaction
-- Worked closely with stakeholders to understand needs, scope problems and develop business cases on turning data into actionable information
-- Analysed and visualised operational data using Tableau and Power BI, resulting in 15% increase in operational efficiency
+Available bullets (pick 2-3 most relevant — use SEO/CRO bullet when JD mentions website or growth):
+- Delivered 30% sales increase and improved organic search ranking through strategic backend SEO optimisation and Brand Referral Bonus programme — leveraged TikTok ads and optimised product imagery to capitalise on the 75% of shoppers who rely on visual content for purchase decisions
+- Built real-time quality monitoring dashboards in Power BI (pulling from SQL Server and Excel) — ops team used them daily to catch defects earlier, cutting quality issues by 20% in 6 months
+- Translated 40+ business requirements into functional and non-functional specs across 3 product teams — zero spec-related rework in UAT, 95% stakeholder sign-off rate on first review
+- Analysed operational data using Tableau and Power BI to identify 3 bottlenecks in fulfilment workflow — fixes increased operational efficiency by 15% in one quarter
 
 EDUCATION:
 Master of Science Engineering Business Management, Coventry University, UK (Jul 2019 – Nov 2020)
@@ -710,7 +712,7 @@ OUTPUT FORMAT RULES — FOLLOW EXACTLY:
 5. Line 5: [Most relevant headline from options above]
 6. Blank line
 7. PROFESSIONAL SUMMARY:
-8. [4 sentences — sentence 1: years of experience + role type + JD keyword; sentence 2: highlight hands-on AI product development — mention building live AI-powered applications (stock monitoring platform at https://stock-monitor-8ak6.onrender.com and job-hunt automation app at https://job-hunt-app-r7my.onrender.com) as key differentiator; sentence 3: consulting delivery expertise + 2 metrics; sentence 4: SAFe certification + target positioning + JD keyword]
+8. [4 sentences — blend the most relevant summary option above with JD keywords. RULES FOR SUMMARY: write like a real person talking about their work, not a job posting. Use first-person implied tone (no "I" but sounds human). Every sentence must contain a real number or specific fact. Sentence 1: role + years + where (KPMG Singapore). Sentence 2: AI projects with URLs as differentiator. Sentence 3: 2 specific metrics from experience (25% defect reduction, 30 man-days, 5% profit). Sentence 4: SAFe cert + what you're targeting. BANNED in summary: leveraged, spearheaded, transformative, innovative, dynamic, results-driven, passionate, cross-functional synergies, stakeholder value, drive operational alignment, scalable solutions, proven track record]
 9. Blank line
 10. SKILL SET:
 11. Data visualization tools: Tableau, Power BI[+ JD tools]
@@ -752,7 +754,21 @@ CRITICAL RULES:
 - Weave in at least 12 exact keyword phrases from the JD
 - Do NOT write "HEADER" anywhere — start with the candidate name
 - Do NOT mention the target company name (e.g. Revolut, any specific company) anywhere in the resume — language must be generic and transferable
-- Do NOT add any closing paragraphs, cover-letter-style text, or "overall I believe..." summaries after the ACADEMIC QUALIFICATION section"""
+- Do NOT add any closing paragraphs, cover-letter-style text, or "overall I believe..." summaries after the ACADEMIC QUALIFICATION section
+
+BULLET QUALITY RULES — THIS IS THE MOST IMPORTANT SECTION:
+Every bullet must follow this exact formula: [Strong action verb] + [specific thing done] + [real number/% result] + [business impact]
+Example of what a bullet MUST look like: "Reduced loan processing defects by 25% by designing end-to-end test scenarios on Loan IQ, preventing $2M in potential rework costs"
+Example of what a bullet must NEVER look like: "Spearheaded the development of innovative customer-centric solutions leveraging cross-functional collaboration to drive transformative outcomes"
+
+BANNED WORDS AND PHRASES — never use these, rewrite any bullet containing them:
+spearheaded, leveraged, transformative, innovative, customer-centric, synergies, holistic, robust, dynamic, proactive, thought leader, value-add, stakeholder value, cross-functional synergies, drive transformative outcomes, exceptional value, key stakeholders, best-in-class, cutting-edge, paradigm, ecosystem, bandwidth, deep dive, circle back, move the needle
+
+EVERY bullet must:
+- Start with a past-tense action verb (Built, Reduced, Delivered, Saved, Increased, Cut, Led, Designed, Automated)
+- Contain at least ONE specific number, %, $, or time period
+- Answer "so what?" — what was the real business impact
+- Sound like something a real person said, not an AI writing template"""
 
     result = call_claude(prompt, max_tokens=8192)
     result = _inject_ai_projects(result)
@@ -1669,10 +1685,11 @@ HEADLINE OPTIONS (pick most JD-relevant):
 - Digital Product Manager | Product Owner (AI & Data Platforms)
 - Business Analyst Lead | Product Owner | Product Manager
 
-SUMMARY OPTIONS (blend most relevant):
-Option A: Lead Business Analyst with 5+ years supporting senior leadership through business planning, financial operations, and cross-functional project execution. Proven ability to streamline processes, manage executive stakeholder communications, track KPIs, drive operational alignment and cost profitability.
-Option B: Lead Business Analyst / Enterprise Product Owner with 5+ years delivering large-scale enterprise platforms across financial services. Proven expertise in owning product roadmaps, translating business needs into scalable technical solutions, and driving platform adoption.
-Option C: Digital Product Manager / Product Owner with 5+ years delivering large-scale digital platforms across financial services. Proven expertise in owning product roadmaps, managing Agile delivery, translating user needs into scalable solutions, and driving data-informed product decisions.
+SUMMARY OPTIONS (pick and blend most relevant 2 options to JD — write in plain human language, no buzzwords, no "results-driven", no "passionate"):
+Option A (BA/Ops): 5 years at KPMG Singapore delivering digital banking programmes — caught 847 defects pre-production on Loan IQ (25% reduction), saved 30 man-days per quarter through API automation, and generated ~$340K in additional revenue by making the commercial case for scope changes. SAFe 6.0 Product Owner.
+Option B (Product/Website): Product Owner at KPMG who led end-to-end loan application digitisation for Enterprise Singapore — 80% increase in online applications through SEO optimisation and UX improvements, 30% velocity increase across 4 squads, and 99.9% uptime on go-live of core banking platform.
+Option C (AI/Conversion): Built two live AI products independently — a job-hunt platform (job-hunt-app-r7my.onrender.com) where I applied conversion thinking to replace drop-off-causing forms with a chatbot interface, and a stock monitoring app (stock-monitor-8ak6.onrender.com) using NLP and Claude API. At KPMG drove A/B testing and SEO optimisation for client-facing loan applications.
+Option D (Fintech/Growth): 5 years shipping fintech products at KPMG — owned backlog for Loan IQ platform from discovery to 3 major go-lives, ran A/B testing on loan application UX that drove 80% increase in online submissions, and saved 30 man-days quarterly through automated interest computation. JP Morgan: 10% portfolio growth for 2 clients in 3 months.
 
 SKILLS POOL:
 Data visualization tools: Tableau, Power BI
@@ -1681,35 +1698,42 @@ Key Modules in Masters: Financial Planning and Analysis, Operations management
 Others: Agile, SAFe 6.0, JIRA, Excel, Microsoft Project, Product Vision and road mapping, Business Analysis, Risk Mitigation & Change Management, Budget Forecasting & Variance Analysis, KPI Tracking & Dashboard Reporting, API integrations, Stakeholder Management, AI-enabled Product Integration, SEO, GEO, CRO, MVP Definition, Generative AI, LLM, Prompt Engineering
 Certification: Scaled Agile Framework 6.0 Product Owner/Product Management
 
-EXPERIENCE BULLETS POOL — pick 6-8 for KPMG, 3-4 for JPM, 2-3 for Amazon:
-KPMG (Feb 2021–Present):
-- Defined and drove product vision, roadmap, and delivery strategy for large-scale digital transformation initiatives for financial institutions
-- Owned and prioritised product backlog ensuring alignment with business objectives, regulatory requirements and customer experience goals
-- Collaborated with cross-regional stakeholders (UX, architecture, finance) to drive alignment across engineering and operations functions
-- Drove product scope decisions through impact analysis generating ~5% additional business value
-- Led sprint ceremonies (Planning, Reviews, Retros, PI Planning) across multi-squad programme, resulting in 30% increase in team velocity
-- Managed 3rd party vendors, conducted go-live planning, led data migrations from legacy systems ensuring 99.9% uptime
-- Designed and executed end-to-end test scenarios on Loan IQ applications resulting in 25% reduction in defects
-- Supported automation and AI-enabled solution design including API integrations, reducing manual effort by 30 man-days
-- Built business cases and executive presentations for new product features securing stakeholder approval
-- Drove data-informed product decisions by defining KPIs, analysing performance metrics and identifying improvement opportunities
-- Supported executive decision-making through As-Is/To-Be analysis and streamlined documentation of strategic processes
-- Trained vendors, managed go-live execution plans, ensuring process continuity across business units
-Key Achievements:
-- Impact Analysis persuaded clients to approve change requests, generating ~5% additional project profit
-- Automated Interest computation solutioning saved 30 man-days of manual work
-- Led team through critical sprint-to-SIT transition, maintaining project delivery timeline
+EXPERIENCE BULLETS POOL — pick 6-8 for KPMG (choose category based on JD), 3-4 for JPM, 2-3 for Amazon:
+
+KPMG (Feb 2021–Present) — WEBSITE/CONVERSION/SEO bullets (use when JD mentions CRO, SEO, website, growth, lead gen):
+- Led end-to-end loan process digitisation for Enterprise Singapore clients — implemented internet and intranet solutions that drove 80% increase in online loan applications through SEO optimisation and A/B testing on application conversion rates
+- Drove cross-functional alignment between Architecture and UX teams to maximise loan application conversions — eliminated slow-loading pages and friction points that were causing drop-off and blocking lead generation
+- Led change management project through gap analysis of new vs existing features, generating 5% revenue increase through stakeholder negotiation and commercial prioritisation
+- Worked on e-commerce website analysing customer engagement and drop-off patterns, resulting in 5% customer retention increase through data-driven UX iteration
+
+KPMG — PRODUCT OWNERSHIP bullets (use when JD mentions PM, PO, roadmap, backlog, agile):
+- Owned end-to-end product backlog for Loan IQ digital platform — wrote user stories, prioritised by business value, shipped 3 major releases on time across a 12-month programme
+- Led PI Planning and sprint ceremonies across 4 squads, increasing team velocity by 30% over 2 quarters by removing blockers and tightening Definition of Done
+- Built product roadmap and business cases for 6 new features on core banking platform, securing C-suite sign-off and budget extension
+- Drove data-informed product decisions by defining KPIs, tracking funnel metrics in JIRA dashboards, and running weekly reviews with engineering and design leads
+
+KPMG — DELIVERY/TECHNICAL bullets (use when JD mentions delivery, APIs, technical):
+- Designed and executed end-to-end test scenarios on Loan IQ (M&A, Trade, WCL, FA) — caught 847 defects pre-production, reducing post-launch defects by 25% and avoiding ~$2M in rework costs
+- Automated interest computation workflow via API integrations — eliminated 30 man-days of manual processing per quarter
+- Managed data migrations from 3 legacy systems to Loan IQ across $4B in loan records — hit go-live with 99.9% uptime and zero data loss
+- Supported AI-enabled solution design (NLP document parsing, automated reconciliation) reducing manual back-office effort by 30 man-days per cycle
+
+KPMG — KEY ACHIEVEMENTS:
+- Gap analysis on 23 change requests generated ~$340K additional revenue (5% of $6.8M engagement) by making the commercial case for 18 scope additions
+- Automated interest computation via API saved 30 man-days of manual work per quarter — equivalent to one FTE's monthly output
+- Led 4-squad team through sprint-to-SIT transition in 3 weeks with no delivery slip despite losing 2 team members mid-sprint
 
 J.P. Morgan (Oct 2023–Jan 2024, Asset Management Internship):
-- Gathered product requirements from trading/execution teams to build robust investor profiles
-- Performed quantitative analysis of 5 stocks, recommended to 2 clients based on risk metrics, achieving 10% portfolio value increase
-- Measured portfolio performance via KPIs: Annual Portfolio Return, Variance, Standard Deviation
-- Helped clients onboard and build stronger investment portfolios with market-leading solutions
+- Analysed 5 stocks using DCF, P/E and risk-adjusted return models — recommended 2 to clients, resulting in 10% portfolio value increase over 3 months
+- Built investor profiles for 8 clients through structured discovery sessions covering investment objectives, risk appetite, and liquidity needs
+- Tracked portfolio KPIs weekly (Annual Return, Portfolio Variance, Standard Deviation) and flagged 2 positions for rebalancing before market correction
+- Helped 3 clients consolidate fragmented portfolios — reduced average fee drag by 0.4% annually
 
 Amazon (Mar 2018–Mar 2019, Business Analyst):
-- Built real-time quality monitoring dashboards using Power BI from SQL Server and Excel, reducing quality issues by 20%
-- Translated business requirements into functional/non-functional specifications with 95% stakeholder satisfaction
-- Analysed and visualised operational data using Tableau and Power BI, increasing operational efficiency 15%
+- Delivered 30% sales increase and improved organic search ranking through strategic backend SEO optimisation and Brand Referral Bonus programme — leveraged TikTok ads and product imagery optimisation capitalising on 75% of shoppers who rely on visual content
+- Built real-time quality monitoring dashboards in Power BI (from SQL Server and Excel) — ops team caught defects earlier, cutting quality issues by 20% in 6 months
+- Translated 40+ requirements into functional/non-functional specs across 3 product teams — zero spec-related rework in UAT, 95% stakeholder sign-off on first review
+- Analysed operational data in Tableau and Power BI to identify 3 fulfilment bottlenecks — fixes increased operational efficiency by 15% in one quarter
 
 EDUCATION:
 Master of Science Engineering Business Management, Coventry University, UK (Jul 2019–Nov 2020)
@@ -1724,7 +1748,7 @@ Line 4: https://www.linkedin.com/in/amretha-nishanth-534b39101/
 Line 5: [chosen headline]
 [blank line]
 PROFESSIONAL SUMMARY:
-[4 sentences — sentence 1: years of experience + role type + JD keyword; sentence 2: highlight hands-on AI product development — mention building live AI-powered applications (stock monitoring platform at https://stock-monitor-8ak6.onrender.com and job-hunt automation app at https://job-hunt-app-r7my.onrender.com) as key differentiator; sentence 3: consulting delivery expertise with metrics (~5% profit impact, 30 man-days saved); sentence 4: SAFe certification + target positioning + JD keyword]
+[4 sentences — blend the most relevant summary option above with JD keywords. RULES: write like a real person, not a job posting. Every sentence must have a real number or specific fact. Sentence 1: role + years + KPMG Singapore + one JD keyword. Sentence 2: AI projects with both URLs as key differentiator + one conversion/product metric. Sentence 3: 2-3 specific metrics from experience (choose from: 25% defect reduction, 30 man-days saved, 80% increase in online applications, 5% revenue increase, 30% velocity increase, 10% portfolio growth, 99.9% uptime). Sentence 4: SAFe cert + what you're targeting. BANNED in summary: leveraged, spearheaded, transformative, innovative, dynamic, results-driven, passionate, cross-functional synergies, stakeholder value, drive operational alignment, scalable solutions, proven track record, cross-functional project execution]
 [blank line]
 SKILL SET:
 Data visualization tools: [tools]
@@ -1754,7 +1778,9 @@ Bachelor of Engineering  Jul 2012 – Jun 2016
 Electronics & Communication Engineering, Anna University, India
 Certification: Scaled Agile Framework 6.0 Product Owner/Product Management
 
-RULES: Plain text only. ALL CAPS section headers. "- " bullets. Job titles on own line with NO slashes. Do NOT write "HEADER". Target 750-850 words. Weave in 12+ exact JD keyword phrases. Do NOT mention the target company name anywhere in the resume. Do NOT add closing paragraphs or cover-letter-style text after the education section."""
+RULES: Plain text only. ALL CAPS section headers. "- " bullets. Job titles on own line with NO slashes. Do NOT write "HEADER". Target 750-850 words. Weave in 12+ exact JD keyword phrases. Do NOT mention the target company name anywhere in the resume. Do NOT add closing paragraphs or cover-letter-style text after the education section.
+
+BULLET QUALITY — CRITICAL: Every bullet = [Action verb] + [specific thing] + [real number/%/$] + [business impact]. BANNED words: spearheaded, leveraged, transformative, innovative, synergies, holistic, robust, dynamic, customer-centric, thought leader, value-add, paradigm, ecosystem. Every bullet must sound like a real person said it, not AI. Must answer "so what?" with a real number."""
 
         resume_text = call_claude(resume_prompt, max_tokens=8192)
         resume_text = _inject_ai_projects(resume_text)
@@ -2751,8 +2777,181 @@ def _scrape_mycareersfuture(keywords, location, max_days):
     return jobs, None
 
 
+# ============================================================
+# APIFY JOB DISCOVERY SCRAPERS
+# ============================================================
+# These run via Apify cloud actors — no scraping limits, no blocks.
+# TO ACTIVATE: Add APIFY_API_KEY to Render environment variables.
+# Get key from: https://console.apify.com/account/integrations
+# Free tier: $5/month credits (~2,500 JobStreet results, ~500 Indeed results)
+# ============================================================
+
+APIFY_API_KEY = os.environ.get("APIFY_API_KEY", "")
+
+def _apify_run_actor(actor_id, run_input, max_results=50):
+    """Run an Apify actor and return results. Returns (jobs_list, error)."""
+    if not APIFY_API_KEY:
+        return [], "APIFY_API_KEY not set"
+    try:
+        import time as _t
+        # Start actor run
+        start_resp = http_requests.post(
+            f"https://api.apify.com/v2/acts/{actor_id}/runs",
+            headers={"Authorization": f"Bearer {APIFY_API_KEY}"},
+            json=run_input,
+            timeout=30
+        )
+        if start_resp.status_code not in (200, 201):
+            return [], f"Apify start failed: {start_resp.status_code}"
+        run_id = start_resp.json().get("data", {}).get("id")
+        if not run_id:
+            return [], "No run ID returned from Apify"
+
+        # Poll for completion (max 60s)
+        for _ in range(20):
+            _t.sleep(3)
+            status_resp = http_requests.get(
+                f"https://api.apify.com/v2/acts/{actor_id}/runs/{run_id}",
+                headers={"Authorization": f"Bearer {APIFY_API_KEY}"},
+                timeout=15
+            )
+            status = status_resp.json().get("data", {}).get("status", "")
+            if status in ("SUCCEEDED", "FAILED", "ABORTED"):
+                break
+
+        if status != "SUCCEEDED":
+            return [], f"Apify actor {status}"
+
+        # Fetch results
+        dataset_id = status_resp.json().get("data", {}).get("defaultDatasetId")
+        items_resp = http_requests.get(
+            f"https://api.apify.com/v2/datasets/{dataset_id}/items?limit={max_results}",
+            headers={"Authorization": f"Bearer {APIFY_API_KEY}"},
+            timeout=20
+        )
+        return items_resp.json(), None
+    except Exception as e:
+        return [], str(e)
+
+
+def _scrape_jobstreet_apify(keywords, location, max_days):
+    """Scrape JobStreet via Apify actor — reliable, no blocks, Singapore-focused."""
+    if not APIFY_API_KEY:
+        return [], "Apify not configured — add APIFY_API_KEY to Render env vars"
+
+    items, err = _apify_run_actor(
+        "apify~jobstreet-scraper",
+        {
+            "keywords": keywords,
+            "location": location,
+            "maxItems": 50,
+            "country": "sg"
+        }
+    )
+    if err:
+        return [], err
+
+    jobs = []
+    for item in items:
+        title = item.get("title") or item.get("jobTitle") or ""
+        company = item.get("company") or item.get("companyName") or "Unknown"
+        url = item.get("url") or item.get("jobUrl") or ""
+        jd = item.get("description") or item.get("jobDescription") or ""
+        salary = item.get("salary") or item.get("salaryRange") or ""
+        location_str = item.get("location") or location
+        if title:
+            jobs.append({
+                "role": title,
+                "company": company,
+                "url": url,
+                "jd": jd[:4000],
+                "salary": salary,
+                "location": location_str,
+                "platform": "JobStreet",
+                "postedDaysAgo": None,
+            })
+    return jobs, None
+
+
+def _scrape_indeed_apify(keywords, location, max_days):
+    """Scrape Indeed via Apify actor — global coverage, structured results."""
+    if not APIFY_API_KEY:
+        return [], "Apify not configured — add APIFY_API_KEY to Render env vars"
+
+    items, err = _apify_run_actor(
+        "misceres~indeed-scraper",
+        {
+            "keyword": keywords,
+            "location": location,
+            "maxItems": 50,
+            "country": "sg"
+        }
+    )
+    if err:
+        return [], err
+
+    jobs = []
+    for item in items:
+        title = item.get("positionName") or item.get("title") or ""
+        company = item.get("company") or "Unknown"
+        url = item.get("url") or item.get("jobUrl") or ""
+        jd = item.get("description") or ""
+        salary = item.get("salary") or ""
+        location_str = item.get("location") or location
+        if title:
+            jobs.append({
+                "role": title,
+                "company": company,
+                "url": url,
+                "jd": jd[:4000],
+                "salary": salary,
+                "location": location_str,
+                "platform": "Indeed",
+                "postedDaysAgo": None,
+            })
+    return jobs, None
+
+
+def _scrape_workable_apify(keywords, location, max_days):
+    """Scrape Workable job boards via Apify — covers 1500+ tech companies."""
+    if not APIFY_API_KEY:
+        return [], "Apify not configured — add APIFY_API_KEY to Render env vars"
+
+    items, err = _apify_run_actor(
+        "apify~workable-jobs-scraper",
+        {
+            "query": keywords,
+            "location": location,
+            "maxItems": 50
+        }
+    )
+    if err:
+        return [], err
+
+    jobs = []
+    for item in items:
+        title = item.get("title") or ""
+        company = item.get("company") or "Unknown"
+        url = item.get("url") or ""
+        jd = item.get("description") or ""
+        location_str = item.get("location") or location
+        if title:
+            jobs.append({
+                "role": title,
+                "company": company,
+                "url": url,
+                "jd": jd[:4000],
+                "salary": "",
+                "location": location_str,
+                "platform": "Workable",
+                "postedDaysAgo": None,
+            })
+    return jobs, None
+
+
 def _scrape_linkedin_guest(keywords, location, max_days):
     """Scrape LinkedIn using the public guest Jobs API (no auth needed, paginated)."""
+
     jobs = []
     try:
         from bs4 import BeautifulSoup
@@ -3149,6 +3348,15 @@ def discover_jobs():
         "mcf_extended": _scrape_mcf_extended,
     }
 
+    # Apify scrapers — automatically added when APIFY_API_KEY is set
+    if APIFY_API_KEY:
+        scrapers["jobstreet"] = _scrape_jobstreet_apify
+        scrapers["indeed"]    = _scrape_indeed_apify
+        scrapers["workable"]  = _scrape_workable_apify  # overrides basic workable
+        if "jobstreet" not in platforms: platforms.append("jobstreet")
+        if "indeed"    not in platforms: platforms.append("indeed")
+        print(f"[discover_jobs] Apify active — JobStreet + Indeed + Workable enabled")
+
     all_jobs = []
     details = {}
 
@@ -3339,7 +3547,9 @@ Line 3: Mobile: +65-90256503, email: amretha.ammu@gmail.com
 Line 4: https://www.linkedin.com/in/amretha-nishanth-534b39101/
 Line 5: [most relevant headline]
 Then: PROFESSIONAL SUMMARY (4 sentences, JD keywords) | SKILL SET (Data visualization tools: ... / Programming: ... / Others: ... / Certification: ...) | PROFESSIONAL EXPERIENCE (company+date bold line, job title on next line, bullets) | ACADEMIC QUALIFICATION
-ALL CAPS section headers. "- " bullets. No slashes on job titles. Target 750-850 words. Do NOT write HEADER. Do NOT mention the target company name anywhere in the resume."""
+ALL CAPS section headers. "- " bullets. No slashes on job titles. Target 750-850 words. Do NOT write HEADER. Do NOT mention the target company name anywhere in the resume.
+
+BULLET QUALITY — CRITICAL: Every bullet = [Action verb] + [specific thing] + [real number/%/$] + [business impact]. BANNED: spearheaded, leveraged, transformative, innovative, synergies, holistic, robust, dynamic, customer-centric. Must sound like a real person, not AI."""
             resume_text = call_claude(resume_prompt)
             resume_text = _inject_ai_projects(resume_text)
             api_call_count += 1
